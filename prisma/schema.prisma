@@ -1,0 +1,358 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  password     String
+  phone        String?
+  role         Role     @default(USER)
+  refreshToken String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orders    Order[]
+  addresses ShippingAddress[]
+  payments  Payment[]
+}
+
+enum Role {
+  ADMIN
+  USER
+  VENDOR
+  EMPLOYEE
+}
+
+/// Product
+model Product {
+  id          String  @id @default(uuid())
+  slug        String  @unique
+  title       String
+  description String?
+  price       Decimal @db.Decimal(18, 2)
+  stock       Int     @default(0)
+  sku         String? @unique
+  imageUrl    String?
+
+  details  String?
+  delivery String?
+  status   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // relations
+  variants     ProductVariant[]
+  images       ProductImage[]
+  category     Category?        @relation(fields: [categoryId], references: [id])
+  categoryId   String?
+  collection   Collection?      @relation(fields: [collectionId], references: [id])
+  collectionId String?
+
+  orderItems OrderItem[]
+
+  // indexes
+  @@index([categoryId])
+  @@index([collectionId])
+  @@index([createdAt])
+  @@index([price])
+  @@index([stock])
+  @@index([title])
+}
+
+model ProductVariant {
+  id        String  @id @default(uuid())
+  productId String
+  size      String? // "S", "M", "L", "XL", "FREE SIZE", dll
+  color     String?
+  stock     Int     @default(0)
+  sku       String?
+
+  bust   String?
+  waist  String?
+  length String?
+  sleeve String?
+  height String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product   Product     @relation(fields: [productId], references: [id])
+  OrderItem OrderItem[]
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  imageUrl  String
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id])
+}
+
+/// Category & Collection
+model Category {
+  id        String   @id @default(uuid())
+  title     String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@index([title])
+}
+
+model Collection {
+  id             String  @id @default(uuid())
+  title          String
+  description    String
+  subDescription String
+  quote          String
+  heroImage      String?
+  status         Boolean @default(true)
+
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@index([title])
+}
+
+/// Order & Payment
+
+/// Payment
+model Payment {
+  id               String        @id @default(uuid())
+  userId           String
+  orderId          String
+  referenceId      String        @unique
+  paymentRequestId String        @unique
+  paymentLinkUrl   String?
+  amount           Decimal       @db.Decimal(18, 2)
+  status           PaymentStatus @default(PENDING)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  expiredAt        DateTime?
+  user             User          @relation(fields: [userId], references: [id])
+  order            Order         @relation(fields: [orderId], references: [id])
+  refunds          Refund[]
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([status])
+}
+
+model Refund {
+  id              String   @id @default(uuid())
+  paymentId       String
+  refundRequestId String   @unique
+  amount          Decimal  @db.Decimal(18, 2)
+  reason          String?
+  status          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@index([status])
+}
+
+model Order {
+  id                 String      @id @default(uuid())
+  userId             String
+  status             OrderStatus @default(DRAFT)
+  total              Decimal     @db.Decimal(18, 2)
+  shippingCost       Decimal?    @db.Decimal(18, 2)
+  subTotal           Decimal     @db.Decimal(18, 2)
+  xenditPaymentId    String?
+  referenceId        String?
+  bytestepShipmentId String?
+  shippingAddressId  String?
+  courierCompany     String?
+  discountId         String?
+  giftNote           String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  user            User               @relation(fields: [userId], references: [id])
+  items           OrderItem[]
+  statusLogs      OrderStatusLog[]
+  tracking        ShipmentTracking[]
+  shippingAddress ShippingAddress?   @relation(fields: [shippingAddressId], references: [id])
+  discount        Discount?          @relation(fields: [discountId], references: [id])
+  payments        Payment[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id              String   @id @default(uuid())
+  orderId         String
+  productId       String
+  quantity        Int
+  priceAtPurchase Decimal  @db.Decimal(18, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  variantId       String?
+
+  order   Order           @relation(fields: [orderId], references: [id])
+  product Product         @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model OrderStatusLog {
+  id        String      @id @default(uuid())
+  orderId   String
+  status    OrderStatus
+  createdAt DateTime    @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([status])
+}
+
+/// Shipping
+model ShippingAddress {
+  id             String   @id @default(uuid())
+  userId         String
+  country        String
+  firstName      String
+  lastName       String
+  address        String
+  addressDetails String?
+  city           String
+  province       String
+  postalCode     String
+  phone          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id])
+  orders Order[]
+
+  @@index([userId])
+  @@index([city])
+  @@index([province])
+}
+
+model ShipmentTracking {
+  id                String    @id @default(uuid())
+  orderId           String
+  courier           String
+  trackingId        String
+  estimatedDelivery DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([courier])
+}
+
+/// Discounts / Coupons
+model Discount {
+  id                 String       @id @default(uuid())
+  title              String
+  code               String       @unique
+  type               DiscountType
+  value              Decimal      @db.Decimal(18, 2)
+  expiresAt          DateTime
+  usedCount          Int          @default(0)
+  minimumOrderAmount Decimal?     @db.Decimal(18, 2)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  orders Order[]
+
+  @@index([code])
+  @@index([expiresAt])
+}
+
+enum DiscountType {
+  PERCENT
+  VALUE
+}
+
+enum PaymentStatus {
+  PENDING // Invoice dibuat, menunggu pembayaran
+  PAID // Pembayaran berhasil diterima
+  FAILED // Pembayaran gagal
+  REFUNDED // Dana dikembalikan
+  EXPIRED // Tagihan kedaluwarsa
+}
+
+enum OrderStatus {
+  DRAFT // Order baru dibuat (otomatis sebelum pembayaran PAID / sedang PENDING)
+  NEW // Order setelah pembayaran PAID
+  PACKED // Barang sedang dikemas
+  SHIPPED // Barang sedang dikirim
+  DELIVERED // Barang sudah diterima
+  CANCELLED // Order dibatalkan
+  RETURNED // Barang dikembalikan
+  REFUNDED // Dana dikembalikan penuh
+  EXPIRED
+}
+
+model Blog {
+  id          String    @id @default(uuid())
+  event       String
+  title       String
+  description String
+  slug        String    @unique
+  date        DateTime? @default(now())
+  heroImage   String?
+
+  // Section 1
+  firstHeaderImage String?
+  firstHeading     String?
+  firstDescription String?
+
+  // Section 2
+  secondHeaderImage String?
+  secondHeading     String?
+  secondDescription String?
+
+  // Section 3
+  thirdHeaderImage String?
+  thirdHeading     String?
+  thirdDescription String?
+
+  // Section 4
+  fourthHeaderImage String?
+  fourthHeading     String?
+  fourthDescription String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Setting {
+  id       String  @id @default(uuid())
+  key      String  @unique
+  value    String?
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
