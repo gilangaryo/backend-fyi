@@ -54,7 +54,12 @@ const allowedOrigins = [
     'http://localhost:3000',
     'http://192.168.1.11:3000',
     'https://app.cobatesting.my.id',
-    'http://app.cobatesting.my.id'
+    'http://app.cobatesting.my.id',
+
+    // production domains
+    'https://fyicouture.com',
+    'https://www.fyicouture.com',
+    'https://api.fyicouture.com',
 ];
 app.use(cors({
 
