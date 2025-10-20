@@ -60,6 +60,7 @@ const allowedOrigins = [
     'https://fyicouture.com',
     'https://www.fyicouture.com',
     'https://api.fyicouture.com',
+    'https://fyi-couture.vercel.app'
 ];
 app.use(cors({
 
