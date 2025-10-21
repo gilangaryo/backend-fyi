@@ -118,7 +118,7 @@ model Collection {
   title          String
   description    String  @db.Text
   subDescription String? @db.Text
-  quote          String
+  quote          String  @db.Text
   heroImage      String?
   status         Boolean @default(true)
   position       Int     @default(0)
@@ -239,8 +239,8 @@ model ShippingAddress {
   country        String
   firstName      String
   lastName       String
-  address        String
-  addressDetails String?
+  address        String   @db.Text
+  addressDetails String?  @db.Text
   city           String
   province       String
   postalCode     String
@@ -319,7 +319,7 @@ model Blog {
   id          String    @id @default(uuid())
   event       String
   title       String
-  description String
+  description String    @db.Text
   slug        String    @unique
   date        DateTime? @default(now())
   heroImage   String?
@@ -327,22 +327,22 @@ model Blog {
   // Section 1
   firstHeaderImage String?
   firstHeading     String?
-  firstDescription String?
+  firstDescription String? @db.Text
 
   // Section 2
   secondHeaderImage String?
   secondHeading     String?
-  secondDescription String?
+  secondDescription String? @db.Text
 
   // Section 3
   thirdHeaderImage String?
   thirdHeading     String?
-  thirdDescription String?
+  thirdDescription String? @db.Text
 
   // Section 4
   fourthHeaderImage String?
   fourthHeading     String?
-  fourthDescription String?
+  fourthDescription String? @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
