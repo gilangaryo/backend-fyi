@@ -13,7 +13,7 @@ model User {
   name         String
   email        String   @unique
   password     String
-  phone        String?
+  phone        String?  @db.Text
   role         Role     @default(USER)
   refreshToken String?
   createdAt    DateTime @default(now())
@@ -116,8 +116,8 @@ model Category {
 model Collection {
   id             String  @id @default(uuid())
   title          String
-  description    String
-  subDescription String
+  description    String  @db.Text
+  subDescription String? @db.Text
   quote          String
   heroImage      String?
   status         Boolean @default(true)
