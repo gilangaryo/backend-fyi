@@ -7,6 +7,7 @@ import {
     handleUpdateCollection,
     handleDeleteCollection,
     handleUpdateCollectionStatus,
+    handleReorderCollections
 } from '../usecase/collections/collection.controller.js';
 
 import { requireAuth } from '../middleware/auth.middleware.js';
@@ -23,6 +24,7 @@ router.get('/slug/:slug', handleGetCollectionBySlug);
 
 // 🔒 Admin Only
 router.post('/', requireAuth, requireAdmin, uploadHero.single('hero'), handleCreateCollection);
+router.put("/reorder", requireAuth, requireAdmin, handleReorderCollections);
 router.put('/:id', requireAuth, requireAdmin, uploadHero.single('hero'), handleUpdateCollection);
 router.patch('/status/:id', requireAuth, requireAdmin, handleUpdateCollectionStatus);
 router.delete('/:id', requireAuth, requireAdmin, handleDeleteCollection);

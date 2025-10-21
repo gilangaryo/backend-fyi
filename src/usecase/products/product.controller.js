@@ -11,18 +11,38 @@ import {
 // get all
 export async function handleGetProducts(req, res) {
     try {
+        const { search, page = 1, limit = 12, status } = req.query
+
         const statusFilter =
-            req.query.status === 'false'
+            status === 'false'
                 ? false
-                : req.query.status === 'true'
+                : status === 'true'
                     ? true
                     : undefined
 
-        const products = await getAllProducts(statusFilter)
+        const pageNum = Math.max(Number(page), 1)
+        const limitNum = Math.max(Number(limit), 1)
+        const skip = (pageNum - 1) * limitNum
+
+        const { products, total } = await getAllProducts({
+            statusFilter,
+            search,
+            skip,
+            limit: limitNum,
+        })
+
+        const totalPages = Math.ceil(total / limitNum)
+
         res.status(200).json({
             success: true,
             status: 200,
             message: 'Product list retrieved successfully',
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                totalPages,
+            },
             data: products,
         })
     } catch (err) {
@@ -34,6 +54,7 @@ export async function handleGetProducts(req, res) {
         })
     }
 }
+
 
 // suggested
 export async function handleGetSuggestedProducts(req, res) {

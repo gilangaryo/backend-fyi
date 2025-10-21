@@ -6,6 +6,7 @@ import {
     updateCollection,
     removeCollection,
     updateCollectionStatus,
+    reorderCollections
 } from './collection.service.js';
 import fs from 'fs';
 import path from 'path';
@@ -235,5 +236,36 @@ export async function handleUploadCollectionHero(req, res) {
             status: 400,
             message: err.message,
         })
+    }
+}
+
+
+
+export async function handleReorderCollections(req, res) {
+    try {
+        const { orderedIds } = req.body;
+
+        if (!Array.isArray(orderedIds)) {
+            return res.status(400).json({
+                success: false,
+                status: 400,
+                message: "Invalid request: orderedIds must be an array",
+            });
+        }
+
+        await reorderCollections(orderedIds);
+
+        res.status(200).json({
+            success: true,
+            status: 200,
+            message: "Collections reordered successfully",
+        });
+    } catch (err) {
+        console.error("❌ Reorder error:", err);
+        res.status(500).json({
+            success: false,
+            status: 500,
+            message: err.message || "Internal server error",
+        });
     }
 }

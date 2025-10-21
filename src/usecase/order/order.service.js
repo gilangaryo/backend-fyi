@@ -289,3 +289,20 @@ export const getAllOrders = async ({ page = 1, limit = 10, search = "", status =
         },
     };
 };
+
+
+export const getOrderById = async (id) => {
+    const order = await OrderRepository.findOrderById(id);
+    if (!order) throw new Error("Order not found");
+    return order;
+};
+
+export const acceptOrder = async (id) => {
+    const order = await OrderRepository.findOrderById(id);
+    if (!order) {
+        throw new Error("Order not found");
+    }
+    console.log(order);
+
+    return await OrderRepository.updateOrder(order.id, { status: "PACKED" });
+};

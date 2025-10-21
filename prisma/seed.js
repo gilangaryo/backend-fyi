@@ -41,28 +41,19 @@ async function main() {
     console.log("🪶 Creating collections...");
     const collections = [
         {
-            title: "Forbidden Fruit",
-            description:
-                "A bold collection inspired by the sweetness and mystery of temptation.",
-            subDescription: "Playful, vibrant, and daring pieces for confident women.",
-            quote: "Taste the temptation.",
-            heroImage: "/collection/dummy-collection-hero.jpg",
-        },
-        {
             title: "Animal Spirit",
-            description: "Animal print isn’t just a look — it’s a statement.",
-            subDescription: "Each piece is designed to channel your inner power.",
-            quote: "Unleash your spirit.",
-            heroImage: "/collection/dummy-collection-hero.jpg",
+            description: "Animal Spirit is the wild and rebellious heart of Island Couture - a celebration of strength, instinct, and untamed beauty.Each piece merges the raw allure of animal prints with therefined artistry of Lombok woven heritage, ",
+            subDescription: "creating an intriguing dialogue between tradition and wilderness. Brave yet graceful, this collection embodies freedom that lives within all of us.",
+            quote: "Indonesian Ready Couture. We stage Indonesian creativity, craftmanship and elegance to the world.",
+            heroImage: "/collection/dummy-collection-hero-1.png",
         },
         {
-            title: "White Canvas",
-            description:
-                "Minimal, clean, and versatile — where simplicity meets elegance.",
-            subDescription: "The foundation for effortless everyday style.",
-            quote: "Style starts from a blank canvas.",
-            heroImage: "/collection/dummy-collection-hero.jpg",
-        },
+            title: "Couture Canvas",
+            description: "The Couture Canvas Collection is the first FYI Couture’s signature, when the brand starts in 2025 It explores simplicity as a translation of elegance: clean lines, refined tailoring, and versatile silhouettes creating a timeless wardrobe designed for every occasion. Just like a blank canvas, each piece invites everyone to express your individuality with quiet confidence and effortless grace.",
+            subDescription: "Just like a blank canvas, each piece invites everyone to express your individuality with quiet confidence and effortless grace",
+            quote: "Indonesian Ready Couture. We stage Indonesian creativity, craftmanship and elegance to the world.",
+            heroImage: "/collection/dummy-collection-hero-2.png",
+        }
     ];
 
     const collectionRecords = {};
@@ -105,38 +96,59 @@ async function main() {
     // ======================================================
     // 4️⃣ PRODUCTS
     // ======================================================
-    console.log("👗 Creating products...");
+    console.log("👗 Creating products...")
+
     const descriptions = {
         "Animal Spirit":
             "Animal print isn’t just a look — it’s a statement. A reminder that beneath the calm is a roar.",
-        "Forbidden Fruit":
+        "Couture Canvas":
             "A bold collection inspired by the sweetness and mystery of temptation. Playful, vibrant, and daring.",
-        "White Canvas":
-            "Minimal, clean, and versatile — a wardrobe essential where simplicity meets elegance.",
-    };
+    }
 
     const products = [
+        {
+            title: "BOYFRIEND SHIRT – FORBIDDEN FRUIT PAMPLEMOUSSE SHIBORI",
+            category: "Tops",
+            collection: "Couture Canvas",
+            images: [
+                "boyfriend-shirt-forbidden-fruit-pamplemousse-shibori-front.jpg",
+                "boyfriend-shirt-forbidden-fruit-pamplemousse-shibori-back.jpg",
+            ],
+        },
         {
             title: "RESORT OUTER – LONG OUTER – ANIMAL SPIRIT",
             category: "Outer",
             collection: "Animal Spirit",
+            images: [
+                "resort-outer-long-outer-animal-spirit-front.jpg",
+                "resort-outer-long-outer-animal-spirit-side.jpg",
+            ],
         },
         {
-            title: "BOYFRIEND SHIRT – FORBIDDEN FRUIT PAMPLEMOUSSE SHIBORI",
-            category: "Tops",
-            collection: "Forbidden Fruit",
+            title: "REVERSIBLE MADAME – FORBIDDEN FRUIT KAIN BALI",
+            category: "Outer",
+            collection: "Couture Canvas",
+            images: [
+                "reversible-madame-forbidden-fruit-kain-bali-front.jpg",
+                "reversible-madame-forbidden-fruit-kain-bali-back.png",
+            ],
         },
         {
             title: "SUMBA SHIBORI COUTURE CANVAS – CAPUCHON DRESS",
             category: "Dresses",
             collection: "Animal Spirit",
+            images: [
+                "sumba-shibori-couture-canvas-capuchon-dress-front.jpg",
+                "sumba-shibori-couture-canvas-capuchon-dress-back.jpg",
+            ],
         },
-    ];
+    ]
 
-    const productRecords = {};
+    const productRecords = {}
 
     for (const p of products) {
-        const slug = slugify(p.title, { lower: true, strict: true });
+        const slug = slugify(p.title, { lower: true, strict: true })
+
         const product = await prisma.product.upsert({
             where: { slug },
             update: {},
@@ -146,15 +158,20 @@ async function main() {
                 price: 1000000,
                 description: descriptions[p.collection],
                 stock: 20,
-                imageUrl: "/uploads/product/dummy-product.png",
+                imageUrl: `/uploads/product/${p.images.find((i) =>
+                    i.includes("front")
+                )}`, // default preview pakai front
                 categoryId: categoryRecords[p.category],
                 collectionId: collectionRecords[p.collection],
+                details:
+                    "Soft as air, close as a whisper. This fabric clings like a lover, weightless, breathable, and made to move with you.",
+                delivery: "Free delivery",
             },
-        });
+        })
 
-        productRecords[p.title] = product.id;
+        productRecords[p.title] = product.id
 
-        // Variants (dengan detail ukuran lengkap)
+        // Variants
         await prisma.productVariant.createMany({
             data: [
                 {
@@ -183,26 +200,21 @@ async function main() {
                 },
             ],
             skipDuplicates: true,
-        });
+        })
 
+        // Images (dinamis)
+        const imageData = p.images.map((filename) => ({
+            productId: product.id,
+            imageUrl: `/uploads/product/${filename}`,
+            isPrimary: filename.toLowerCase().includes("front"),
+        }))
 
-        // Images
         await prisma.productImage.createMany({
-            data: [
-                {
-                    productId: product.id,
-                    imageUrl: "/uploads/product/front.png",
-                    isPrimary: true,
-                },
-                {
-                    productId: product.id,
-                    imageUrl: "/uploads/product/back.png",
-                    isPrimary: false,
-                },
-            ],
+            data: imageData,
             skipDuplicates: true,
-        });
+        })
     }
+
 
     // ======================================================
     // 5️⃣ SAMPLE ORDER + PAYMENT
@@ -259,48 +271,44 @@ async function main() {
 
     const blogs = [
         {
-            event: "Behind the Scenes",
-            title: "The Making of Forbidden Fruit Collection",
+            event: "FYI x Kendra Art Space: ",
+            title: "The Journey of Becoming",
             description:
-                "Discover the inspiration and craftsmanship behind FYI Couture’s most daring collection yet.",
-            slug: slugify("The Making of Forbidden Fruit Collection", {
+                "Through collaborations with artists, performers, and visionaries, FYI celebrates individuality and creative expression. From editorial photo series and visual installations to intimate showcases and performing arts collaborations, we bring together diverse talents to shape experiences that inspire and move.",
+            slug: slugify("FYI x Kendra Art Space The Journey of Becoming", {
                 lower: true,
                 strict: true,
             }),
-            heroImage: "/collection/dummy-collection-hero.jpg",
-            firstHeaderImage: "/uploads/product/front.png",
-            firstHeading: "Inspiration",
+            heroImage: "/uploads/blog/hero-image.jpg",
+            firstHeaderImage: "/uploads/blog/blog-1.png",
+            firstHeading: "In summer 2025 instead of this summer",
             firstDescription:
-                "‘Forbidden Fruit’ was born from the idea of temptation and self-expression through bold color palettes and shapes.",
-            secondHeaderImage: "/uploads/product/back.png",
-            secondHeading: "Process",
+                "FYI collaborates with Tanya Bourgeois Cayer, a dancer from Canada who now calls Bali her creative home. The collection is born from movement, rhythm, and the quiet confidence that comes from being one with your body and the island air.",
+            secondHeaderImage: "/uploads/blog/blog-2.png",
+            secondHeading: "The collaboration celebrates the harmony between dance and design.",
             secondDescription:
-                "Each piece is hand-dyed and cut with precision, merging contemporary silhouettes with Indonesian craftsmanship.",
-            thirdHeading: "Philosophy",
-            thirdDescription:
-                "At FYI, fashion is not just what you wear—it’s a story of courage, confidence, and creativity.",
+                "Tanya’s graceful movement becomes the language that brings the pieces to life, while FYI translates that rhythm into fluid forms that flow naturally with every step and gesture.",
+
         },
         {
-            event: "Editorial",
-            title: "White Canvas: The Art of Minimal Fashion",
+            event: "White Canvas:",
+            title: "The Art of Minimal Fashion",
             description:
                 "Why less is more—exploring FYI Couture’s timeless minimalist philosophy.",
             slug: slugify("White Canvas: The Art of Minimal Fashion", {
                 lower: true,
                 strict: true,
             }),
-            heroImage: "/collection/dummy-collection-hero.jpg",
-            firstHeaderImage: "/uploads/product/front.png",
+            heroImage: "/uploads/blog/hero-image.jpg",
+            firstHeaderImage: "/uploads/blog/blog-1.png",
             firstHeading: "Simplicity Speaks",
             firstDescription:
                 "White Canvas embodies purity and openness—each design is a statement of effortless style.",
-            secondHeaderImage: "/uploads/product/back.png",
+            secondHeaderImage: "/uploads/blog/blog-2.png",
             secondHeading: "Craft",
             secondDescription:
                 "Our artisans create silhouettes that allow fabric, form, and texture to breathe in harmony.",
-            thirdHeading: "Balance",
-            thirdDescription:
-                "This collection is a reminder that confidence often comes from subtlety.",
+
         },
     ];
 
@@ -326,6 +334,11 @@ async function main() {
         },
     });
 
+    await prisma.setting.upsert({
+        where: { key: "store_status" },
+        update: {},
+        create: { key: "store_status", value: "open" },
+    });
     console.log("✅ Seeding completed successfully!");
 }
 

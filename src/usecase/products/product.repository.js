@@ -1,18 +1,39 @@
 import prisma from '../../prisma/client.js';
 
 // ambil semua produk
-export async function findAllProducts(statusFilter) {
-    return prisma.product.findMany({
-        where: statusFilter !== undefined ? { status: statusFilter } : {},
-        orderBy: { createdAt: 'desc' },
-        include: {
-            variants: true,
-            images: true,
-            category: true,
-            collection: true,
-        },
-    });
+export async function findAllProducts(statusFilter, search, skip = 0, limit = 12) {
+    const whereClause = {
+        ...(statusFilter !== undefined ? { status: statusFilter } : {}),
+        ...(search
+            ? {
+                OR: [
+                    { title: { contains: search } },
+                    { slug: { contains: search } },
+                    { description: { contains: search } },
+                ],
+            }
+            : {}),
+    }
+
+    const [total, products] = await prisma.$transaction([
+        prisma.product.count({ where: whereClause }),
+        prisma.product.findMany({
+            where: whereClause,
+            skip,
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                variants: true,
+                images: true,
+                category: true,
+                collection: true,
+            },
+        }),
+    ])
+
+    return { products, total }
 }
+
 
 export async function findSuggestedProducts(statusFilter, limit) {
     const totalCount = await prisma.product.count({

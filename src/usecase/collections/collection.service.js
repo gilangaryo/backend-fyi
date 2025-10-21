@@ -6,7 +6,8 @@ import {
     insertCollection,
     updateCollectionData,
     deleteCollectionData,
-    updateCollectionStatusData, // 👈 baru
+    updateCollectionStatusData,
+    reorderCollections as reorderCollectionsRepo
 
 } from './collection.repository.js';
 
@@ -109,4 +110,16 @@ export async function updateCollectionStatus(id, status) {
     if (!collection) throw new Error('Collection not found');
 
     return updateCollectionStatusData(id, status);
+}
+
+
+
+
+export async function reorderCollections(orderedIds) {
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+        throw new Error("orderedIds must be a non-empty array");
+    }
+
+    await reorderCollectionsRepo(orderedIds);
+    return { success: true };
 }

@@ -23,10 +23,10 @@ export const createOrder = async (req, res) => {
 export const getOrderById = async (req, res) => {
     try {
         const order = await OrderService.getOrderById(req.params.id);
-        if (!order)
+        if (!order) {
             return res.status(404).json({ success: false, message: "Order not found" });
-
-        res.json({ success: true, data: order });
+        }
+        return res.status(200).json({ success: true, message: "Order fetched successfully", data: order });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
@@ -54,5 +54,18 @@ export const getAllOrders = async (req, res) => {
             success: false,
             message: err.message || "Failed to get orders",
         });
+    }
+};
+
+
+export const acceptOrder = async (req, res) => {
+    try {
+        const order = await OrderService.acceptOrder(req.params.id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Order not found" });
+        }
+        return res.status(200).json({ success: true, message: "Order accepted successfully", data: order });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
     }
 };

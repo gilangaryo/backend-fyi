@@ -20,6 +20,13 @@ export const findOrderById = async (id) => {
                 include: { product: true },
             },
             payments: true,
+            user: {
+                select: {
+                    name: true,
+                    email: true,
+                    phone: true
+                }
+            },
         },
     });
 };

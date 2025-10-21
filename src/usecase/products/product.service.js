@@ -11,9 +11,10 @@ import {
 } from './product.repository.js'
 
 // get all
-export async function getAllProducts(statusFilter) {
-    return findAllProducts(statusFilter)
+export async function getAllProducts({ statusFilter, search, skip, limit }) {
+    return findAllProducts(statusFilter, search, skip, limit)
 }
+
 export async function getSuggestedProducts(statusFilter, limit) {
     return findSuggestedProducts(statusFilter, limit)
 }
@@ -50,6 +51,8 @@ export async function createProduct(data) {
         status,
     } = data
 
+    console.log(data);
+
     if (!title || title.trim().length < 3)
         throw new Error('Title is required and must be at least 3 characters')
 
@@ -60,6 +63,10 @@ export async function createProduct(data) {
     const existing = await findProductBySlug(slug)
     if (existing) throw new Error('Product with this title already exists')
 
+    const totalStock = Array.isArray(variants)
+        ? variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
+        : 0;
+
     return insertProduct({
         title: title.trim(),
         slug,
@@ -67,7 +74,7 @@ export async function createProduct(data) {
         details: details ?? null,
         delivery: delivery ?? null,
         price,
-        stock: stock ?? 0,
+        stock: totalStock,
         sku: sku ?? null,
         imageUrl: imageUrl,
         categoryId: categoryId,

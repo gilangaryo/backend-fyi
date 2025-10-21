@@ -4,7 +4,7 @@ import prisma from '../../prisma/client.js';
 export async function findAllCollections(status = undefined) {
     return prisma.collection.findMany({
         where: { status },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { position: 'asc' },
         include: {
             products: {
                 include: {
@@ -60,4 +60,17 @@ export async function updateCollectionStatusData(id, status) {
         where: { id },
         data: { status },
     });
+}
+
+
+export async function reorderCollections(orderedIds) {
+    const updates = orderedIds.map((id, index) =>
+        prisma.collection.update({
+            where: { id },
+            data: { position: index },
+        })
+    );
+
+    await Promise.all(updates);
+    return true;
 }
