@@ -4,9 +4,9 @@ CREATE TABLE `User` (
     `name` VARCHAR(191) NOT NULL,
     `email` VARCHAR(191) NOT NULL,
     `password` VARCHAR(191) NOT NULL,
-    `phone` VARCHAR(191) NULL,
+    `phone` TEXT NULL,
     `role` ENUM('ADMIN', 'USER', 'VENDOR', 'EMPLOYEE') NOT NULL DEFAULT 'USER',
-    `refreshToken` VARCHAR(191) NULL,
+    `refreshToken` TEXT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -91,11 +91,12 @@ CREATE TABLE `Category` (
 CREATE TABLE `Collection` (
     `id` VARCHAR(191) NOT NULL,
     `title` VARCHAR(191) NOT NULL,
-    `description` VARCHAR(191) NOT NULL,
-    `subDescription` VARCHAR(191) NOT NULL,
-    `quote` VARCHAR(191) NOT NULL,
+    `description` TEXT NOT NULL,
+    `subDescription` TEXT NULL,
+    `quote` TEXT NOT NULL,
     `heroImage` VARCHAR(191) NULL,
     `status` BOOLEAN NOT NULL DEFAULT true,
+    `position` INTEGER NOT NULL DEFAULT 0,
     `slug` VARCHAR(191) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
@@ -172,7 +173,7 @@ CREATE TABLE `Order` (
 CREATE TABLE `OrderItem` (
     `id` VARCHAR(191) NOT NULL,
     `orderId` VARCHAR(191) NOT NULL,
-    `productId` VARCHAR(191) NOT NULL,
+    `productId` VARCHAR(191) NULL,
     `quantity` INTEGER NOT NULL,
     `priceAtPurchase` DECIMAL(18, 2) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -203,8 +204,8 @@ CREATE TABLE `ShippingAddress` (
     `country` VARCHAR(191) NOT NULL,
     `firstName` VARCHAR(191) NOT NULL,
     `lastName` VARCHAR(191) NOT NULL,
-    `address` VARCHAR(191) NOT NULL,
-    `addressDetails` VARCHAR(191) NULL,
+    `address` TEXT NOT NULL,
+    `addressDetails` TEXT NULL,
     `city` VARCHAR(191) NOT NULL,
     `province` VARCHAR(191) NOT NULL,
     `postalCode` VARCHAR(191) NOT NULL,
@@ -257,22 +258,22 @@ CREATE TABLE `Blog` (
     `id` VARCHAR(191) NOT NULL,
     `event` VARCHAR(191) NOT NULL,
     `title` VARCHAR(191) NOT NULL,
-    `description` VARCHAR(191) NOT NULL,
+    `description` TEXT NOT NULL,
     `slug` VARCHAR(191) NOT NULL,
     `date` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
     `heroImage` VARCHAR(191) NULL,
     `firstHeaderImage` VARCHAR(191) NULL,
     `firstHeading` VARCHAR(191) NULL,
-    `firstDescription` VARCHAR(191) NULL,
+    `firstDescription` TEXT NULL,
     `secondHeaderImage` VARCHAR(191) NULL,
     `secondHeading` VARCHAR(191) NULL,
-    `secondDescription` VARCHAR(191) NULL,
+    `secondDescription` TEXT NULL,
     `thirdHeaderImage` VARCHAR(191) NULL,
     `thirdHeading` VARCHAR(191) NULL,
-    `thirdDescription` VARCHAR(191) NULL,
+    `thirdDescription` TEXT NULL,
     `fourthHeaderImage` VARCHAR(191) NULL,
     `fourthHeading` VARCHAR(191) NULL,
-    `fourthDescription` VARCHAR(191) NULL,
+    `fourthDescription` TEXT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -300,10 +301,10 @@ ALTER TABLE `Product` ADD CONSTRAINT `Product_categoryId_fkey` FOREIGN KEY (`cat
 ALTER TABLE `Product` ADD CONSTRAINT `Product_collectionId_fkey` FOREIGN KEY (`collectionId`) REFERENCES `Collection`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `ProductVariant` ADD CONSTRAINT `ProductVariant_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `ProductVariant` ADD CONSTRAINT `ProductVariant_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `ProductImage` ADD CONSTRAINT `ProductImage_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `ProductImage` ADD CONSTRAINT `ProductImage_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Payment` ADD CONSTRAINT `Payment_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -327,7 +328,7 @@ ALTER TABLE `Order` ADD CONSTRAINT `Order_discountId_fkey` FOREIGN KEY (`discoun
 ALTER TABLE `OrderItem` ADD CONSTRAINT `OrderItem_orderId_fkey` FOREIGN KEY (`orderId`) REFERENCES `Order`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `OrderItem` ADD CONSTRAINT `OrderItem_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `OrderItem` ADD CONSTRAINT `OrderItem_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `OrderItem` ADD CONSTRAINT `OrderItem_variantId_fkey` FOREIGN KEY (`variantId`) REFERENCES `ProductVariant`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
