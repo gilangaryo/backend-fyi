@@ -93,7 +93,6 @@ export async function updateProduct(id, data) {
         details,
         delivery,
         price,
-        stock,
         sku,
         imageUrl,
         categoryId,
@@ -101,36 +100,47 @@ export async function updateProduct(id, data) {
         images,
         variants,
         status,
-    } = data;
+    } = data
 
-    const existing = await findProductById(id);
-    if (!existing) throw new Error('Product not found');
+    const existing = await findProductById(id)
+    if (!existing) throw new Error('Product not found')
 
-    const updateData = {};
+    const updateData = {}
 
     if (title) {
-        if (title.trim().length < 3) throw new Error('Title must be at least 3 characters');
-        updateData.title = title.trim();
-        updateData.slug = slugify(title, { lower: true, strict: true });
+        if (title.trim().length < 3)
+            throw new Error('Title must be at least 3 characters')
+        updateData.title = title.trim()
+        updateData.slug = slugify(title, { lower: true, strict: true })
     }
-    if (description !== undefined) updateData.description = description;
-    if (details !== undefined) updateData.details = details;
-    if (delivery !== undefined) updateData.delivery = delivery;
+
+    if (description !== undefined) updateData.description = description
+    if (details !== undefined) updateData.details = details
+    if (delivery !== undefined) updateData.delivery = delivery
+
     if (price !== undefined) {
-        const parsed = Number(price);
-        if (isNaN(parsed)) throw new Error('Price must be a valid number');
-        updateData.price = parsed;
+        const parsed = Number(price)
+        if (isNaN(parsed)) throw new Error('Price must be a valid number')
+        updateData.price = parsed
     }
-    if (stock !== undefined) updateData.stock = stock;
-    if (sku !== undefined) updateData.sku = sku;
-    if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
-    if (categoryId !== undefined) updateData.categoryId = categoryId;
-    if (collectionId !== undefined) updateData.collectionId = collectionId;
-    if (status !== undefined) updateData.status = status;
 
-    const relationalData = { images, variants };
+    if (sku !== undefined) updateData.sku = sku
+    if (imageUrl !== undefined) updateData.imageUrl = imageUrl
+    if (categoryId !== undefined) updateData.categoryId = categoryId
+    if (collectionId !== undefined) updateData.collectionId = collectionId
+    if (status !== undefined) updateData.status = status
 
-    return updateProductData(id, updateData, relationalData);
+    const totalStock =
+        Array.isArray(variants) && variants.length > 0
+            ? variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
+            : existing.variants.reduce((sum, v) => sum + (v.stock || 0), 0)
+
+    updateData.stock = totalStock
+
+    const relationalData = { images, variants }
+
+    const updated = await updateProductData(id, updateData, relationalData)
+    return updated
 }
 
 

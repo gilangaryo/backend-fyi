@@ -45,6 +45,10 @@ export async function processPaymentCompleted(payload, token) {
                     where: { id: item.variantId },
                     data: { stock: { decrement: item.quantity } },
                 });
+                await prisma.product.update({
+                    where: { id: item.productId },
+                    data: { stock: { decrement: item.quantity } },
+                });
             } else {
                 await prisma.product.update({
                     where: { id: item.productId },
@@ -53,7 +57,6 @@ export async function processPaymentCompleted(payload, token) {
             }
         })
     );
-    console.log("email", order);
 
     // Kirim email ke user
     await sendEmail({

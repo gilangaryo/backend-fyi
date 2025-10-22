@@ -145,5 +145,5 @@ app.use(errorHandler);
 // 🚦 Start
 const PORT = process.env.PORT || 4300;
 app.listen(PORT, () => {
-    console.log(`🚀 E-Commerce API running at http://localhost:${PORT}`);
+    console.log(`E-Commerce API running `);
 });
