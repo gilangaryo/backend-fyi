@@ -15,7 +15,7 @@ model User {
   password     String
   phone        String?  @db.Text
   role         Role     @default(USER)
-  refreshToken String?
+  refreshToken String?  @db.Text
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
