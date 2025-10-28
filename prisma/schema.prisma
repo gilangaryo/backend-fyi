@@ -338,6 +338,7 @@ model Blog {
   thirdHeaderImage String?
   thirdHeading     String?
   thirdDescription String? @db.Text
+  thirdQuote       String?
 
   // Section 4
   fourthHeaderImage String?

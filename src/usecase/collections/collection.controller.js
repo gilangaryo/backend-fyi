@@ -269,3 +269,29 @@ export async function handleReorderCollections(req, res) {
         });
     }
 }
+
+
+export async function handleGetCollectionSlugs(req, res) {
+    try {
+        const collections = await prisma.collection.findMany({
+            select: {
+                id: true,
+                slug: true,
+            },
+            orderBy: { position: 'asc' }
+        });
+        res.status(200).json({
+            success: true,
+            status: 200,
+            message: 'Collection slugs retrieved successfully',
+            data: collections,
+        });
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            status: 500,
+            message: err.message,
+            data: null,
+        });
+    }
+}

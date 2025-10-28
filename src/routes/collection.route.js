@@ -7,7 +7,8 @@ import {
     handleUpdateCollection,
     handleDeleteCollection,
     handleUpdateCollectionStatus,
-    handleReorderCollections
+    handleReorderCollections,
+    handleGetCollectionSlugs
 } from '../usecase/collections/collection.controller.js';
 
 import { requireAuth } from '../middleware/auth.middleware.js';
@@ -19,6 +20,7 @@ const router = Router();
 
 // 👤 Public
 router.get('/', handleGetCollections);
+router.get('/slugs', handleGetCollectionSlugs);
 router.get('/:id', handleGetCollectionById);
 router.get('/slug/:slug', handleGetCollectionBySlug);
 
