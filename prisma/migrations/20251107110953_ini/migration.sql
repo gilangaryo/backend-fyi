@@ -295,7 +295,7 @@ CREATE TABLE `Blog` (
     `thirdDescription` TEXT NULL,
     `thirdSubDescription` TEXT NULL,
     `imageDivider` VARCHAR(191) NULL,
-    `quote` VARCHAR(191) NULL,
+    `quote` TEXT NULL,
     `firstFooterImage` VARCHAR(191) NULL,
     `secondFooterImage` VARCHAR(191) NULL,
     `fourthHeaderImage` VARCHAR(191) NULL,
