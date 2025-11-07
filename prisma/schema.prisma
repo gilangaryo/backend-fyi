@@ -367,7 +367,7 @@ model Blog {
   thirdSubDescription String? @db.Text
 
   imageDivider      String?
-  quote             String?
+  quote             String? @db.Text
   firstFooterImage  String?
   secondFooterImage String?
 
