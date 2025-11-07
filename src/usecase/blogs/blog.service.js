@@ -8,27 +8,25 @@ import {
     updateBlogData,
     deleteBlogData,
 } from "./blog.repository.js";
+import { deleteFileFromServer } from "../../lib/uploader.js"; // ✅ helper hapus file lokal
 
-// get all blogs
+
 export async function getAllBlogs() {
     return await findAllBlogs();
 }
 
-// get by id
 export async function getBlog(id) {
     const blog = await findBlogById(id);
     if (!blog || blog.length === 0) throw new Error("Blog not found");
     return blog;
 }
 
-// get by slug
 export async function getBlogSlug(slug) {
     const blog = await findBlogBySlug(slug);
     if (!blog) throw new Error("Blog not found");
     return blog;
 }
 
-// create blog
 export async function createBlog(data) {
     const { title, event, description, heroImage } = data;
 
@@ -49,7 +47,6 @@ export async function createBlog(data) {
     });
 }
 
-// update blog
 export async function updateBlog(id, data) {
     const { title } = data;
     const updateData = { ...data };
@@ -61,7 +58,32 @@ export async function updateBlog(id, data) {
     return updateBlogData(id, updateData);
 }
 
-// delete blog
+
 export async function removeBlog(id) {
-    return deleteBlogData(id);
+    const blog = await findBlogById(id);
+    if (!blog) throw new Error("Blog not found");
+
+    const allImages = [
+        blog.heroImage,
+        blog.firstHeaderImage,
+        blog.secondHeaderImage,
+        blog.thirdHeaderImage,
+        blog.fourthHeaderImage,
+        blog.firstFooterImage,
+        blog.secondFooterImage,
+        blog.imageDivider,
+    ].filter(Boolean);
+
+    for (const url of allImages) {
+        try {
+            await deleteFileFromServer(url);
+        } catch (err) {
+            console.warn("⚠️ Failed to delete image:", url, err.message);
+        }
+    }
+
+    await deleteBlogData(id);
+
+    console.log(`🗑️ Blog ${id} and all related images deleted`);
+    return { success: true };
 }

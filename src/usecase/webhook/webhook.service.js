@@ -1,6 +1,7 @@
 import {
     updatePaymentStatusByXenditId,
     findPaymentByXenditId,
+    findPaymentByReferenceId
 } from './webhook.repository.js'
 
 import { sendEmail } from '../../lib/mailer.js'
@@ -78,11 +79,12 @@ export async function processPaymentCompleted(payload, token) {
 export async function processPaymentExpired(payload, token) {
     verifyWebhookToken(token)
 
-    const paymentId = payload.data?.id || payload.id
-    const existing = await findPaymentByXenditId(paymentId)
+    const reference_id = payload.data.reference_id
+    const existing = await findPaymentByReferenceId(reference_id)
+
     if (!existing) throw new Error('Payment not found for this webhook')
 
-    await updatePaymentStatusByXenditId(paymentId, 'EXPIRED')
+    await updatePaymentStatusByXenditId(existing.paymentRequestId, 'EXPIRED')
 
     await prisma.order.update({
         where: { id: existing.orderId },

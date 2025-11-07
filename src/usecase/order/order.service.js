@@ -3,9 +3,9 @@ import fetch from "node-fetch";
 import * as OrderRepository from "./order.repository.js";
 import prisma from "../../prisma/client.js";
 import bcrypt from "bcryptjs";
-
+import getDefaultCourierType from "../../lib/courier.js";
 export const createOrder = async (payload) => {
-    const { email, name, phone, address, items, shipping } = payload;
+    const { email, name, phone, address, items, shipping, giftNote, discountId } = payload;
 
     if (!email || !items?.length) {
         throw new Error("email dan items wajib diisi");
@@ -14,7 +14,6 @@ export const createOrder = async (payload) => {
     // Cari / buat user
     const user = await getOrCreateUserByEmail(email, name, phone);
 
-    //  Ambil harga dari DB (hindari manipulasi dari client)
     const dbVariants = await prisma.productVariant.findMany({
         where: { id: { in: items.map((i) => i.variantId) } },
         include: {
@@ -29,9 +28,6 @@ export const createOrder = async (payload) => {
             },
         },
     });
-
-
-
 
     if (dbVariants.length !== items.length) throw new Error("Beberapa produk tidak ditemukan");
 
@@ -52,9 +48,66 @@ export const createOrder = async (payload) => {
         };
     });
 
-
-
     const total = basket.reduce((s, b) => s + b.subtotal, 0);
+
+    let discount = null;
+    let discountAmount = 0;
+
+    if (discountId) {
+        discount = await prisma.discount.findUnique({
+            where: { id: discountId },
+        });
+
+        if (!discount) {
+            throw new Error("Discount code not found");
+        }
+
+        if (new Date(discount.expiresAt) < new Date()) {
+            throw new Error("Discount code has expired");
+        }
+
+        if (discount.minimumOrderAmount && total < discount.minimumOrderAmount) {
+            throw new Error(
+                `Minimum order amount is IDR ${Number(discount.minimumOrderAmount).toLocaleString('id-ID')}`
+            );
+        }
+
+        if (discount.type === 'PERCENT') {
+            discountAmount = Math.floor((total * Number(discount.value)) / 100);
+        } else if (discount.type === 'VALUE') {
+            discountAmount = Number(discount.value);
+        }
+
+        if (discountAmount > total) {
+            discountAmount = total;
+        }
+
+        console.log('💰 Discount applied:', {
+            code: discount.code,
+            type: discount.type,
+            value: discount.value,
+            discountAmount,
+        });
+    }
+
+    const grandTotal = total - discountAmount;
+
+    const defaultCourierSetting = await prisma.setting.findUnique({
+        where: { key: "default_courier" },
+    });
+    const defaultCourier = defaultCourierSetting.value;
+    const courierType = getDefaultCourierType(defaultCourier)
+
+
+    // const now = new Date()
+    // const currentHour = now.getHours()
+    // let deliveryDate = now
+    // let deliveryTime = "16:00" // jam pengiriman tetap
+    // if (currentHour >= 15) {
+    //     // lewat dari jam 3 → kirim besok jam 4
+    //     deliveryDate.setDate(deliveryDate.getDate() + 1)
+    // }
+    // const deliveryDateStr = deliveryDate.toISOString().split("T")[0]
 
     // Buat draft order ke Biteship (pengiriman)
     const biteshipPayload = {
@@ -62,16 +115,20 @@ export const createOrder = async (payload) => {
         origin_contact_phone: "082391231082",
         origin_address: "FYI Plaza Senayan, Jalan Asia Afrika...",
         origin_note: "Dekat pintu masuk FYI",
-        origin_postal_code: 12440,
+        origin_postal_code: 80351,
         destination_contact_name: name,
         destination_contact_phone: phone,
         destination_contact_email: email,
         destination_address: address.address,
         destination_postal_code: address.postalCode,
         destination_note: "Auto from system",
-        courier_company: shipping?.courier_company || "sicepat",
-        courier_type: shipping?.courier_type || "reg",
-        delivery_type: shipping?.delivery_type || "now",
+        courier_company: defaultCourier,
+        courier_type: courierType,
+        // delivery_type: "scheduled",
+        // delivery_date: deliveryDateStr,
+        // delivery_time: deliveryTime,
+        delivery_type: "now",
+
         order_note: shipping?.order_note || "",
         items: basket.map((b) => ({
             name: b.product.title,
@@ -95,18 +152,49 @@ export const createOrder = async (payload) => {
         body: JSON.stringify(biteshipPayload),
     });
 
+
     const shipData = await shipRes.json();
+    console.log("shipdataaaaa ", shipData);
     if (!shipRes.ok) throw new Error(shipData.message || "Gagal buat draft pengiriman");
 
     const shippingCost = Number(shipData.price || 0);
     const subTotal = total + shippingCost;
+
+    let shippingAddress = null;
+
+    //  Simpan alamat pengiriman
+    if (address) {
+        shippingAddress = await prisma.shippingAddress.create({
+            data: {
+                id: uuid(),
+                userId: user.id,
+                firstName: address.firstName || name || "Guest",
+                lastName: address.lastName || "",
+
+                country: address.country,
+                address: address.address,
+                addressDetails: address.apartment || "",
+
+                province: address.province,
+                city: address.city,
+                district: address.district,
+                village: address.village,
+
+                postalCode: address.postalCode,
+                phone,
+            },
+        });
+    }
 
     //  Buat order di DB
     const order = await OrderRepository.createOrder({
         userId: user.id,
         subTotal: subTotal,
         shippingCost,
-        total: total,
+        shippingAddressId: shippingAddress.id,
+        giftNote: giftNote || null,
+        discountId: discountId || null,
+        total: grandTotal, // Total yang dibayar user (sudah include discount, shipping FREE)
         status: "DRAFT",
     });
 
@@ -123,26 +211,23 @@ export const createOrder = async (payload) => {
         )
     );
 
-    //  Simpan alamat pengiriman
-    if (address) {
-        await prisma.shippingAddress.create({
+    // INCREMENT DISCOUNT USAGE COUNT
+    if (discountId) {
+        await prisma.discount.update({
+            where: { id: discountId },
             data: {
-                userId: user.id,
-                country: address.country,
-                firstName: address.firstName || name || "Guest",
-                lastName: address.lastName || "",
-                address: address.address,
-                city: address.city,
-                province: address.province,
-                postalCode: address.postalCode,
-                phone,
+                usedCount: {
+                    increment: 1,
+                },
             },
         });
+        console.log('✅ Discount usage count incremented');
     }
 
     // Buat payment link Xendit
     const paymentRef = `order_${order.id}`;
 
+    // ✅ Items HANYA produk saja
     const xenditItems = basket.map((b) => {
         const sizeLabel = b.size ? ` — Size ${b.size}` : "";
         return {
@@ -163,23 +248,28 @@ export const createOrder = async (payload) => {
         };
     });
 
-
-    // Tambahkan ongkir ke invoice
-    // if (shippingCost > 0) {
-    //     xenditItems.push({
-    //         type: "FEES",
-    //         name: `${shipData.courier.company.toUpperCase()} Shipping`,
-    //         net_unit_amount: shippingCost,
-    //         quantity: 1,
-    //         description: `Delivery via ${shipData.courier.company}`,
-    //     });
-    // }
+    if (discountAmount > 0 && discount) {
+        xenditItems.push({
+            type: "FEE",
+            reference_id: `discount_${discount.id}`,
+            category: "fees",
+            name: `Discount - ${discount.code}`,
+            net_unit_amount: -discountAmount,
+            quantity: 1,
+            description: `${discount.type === 'PERCENT' ? `${discount.value}% OFF` : `IDR ${Number(discount.value).toLocaleString('id-ID')} OFF`}`,
+            metadata: {
+                discount_id: discount.id,
+                discount_code: discount.code,
+                discount_type: discount.type,
+            },
+        });
+    }
 
     const paymentPayload = {
         reference_id: paymentRef,
         session_type: "PAY",
         mode: "PAYMENT_LINK",
-        amount: Number(total),
+        amount: Number(grandTotal),
         currency: "IDR",
         country: "ID",
         items: xenditItems,
@@ -192,6 +282,20 @@ export const createOrder = async (payload) => {
         },
         success_return_url: `${process.env.FRONTEND_URL}/success?order_id=${order.id}`,
         cancel_return_url: `${process.env.FRONTEND_URL}/cancel`,
+        metadata: {
+            order_id: order.id,
+            subtotal_before_discount: String(total),
+            ...(discountAmount > 0 && {
+                discount_code: discount.code,
+                discount_amount: String(discountAmount),
+                discount_id: discount.id,
+                discount_type: discount.type,
+                discount_value: String(discount.value),
+            }),
+            shipping_cost: String(shippingCost),
+            shipping_note: "FREE SHIPPING",
+            grand_total: String(grandTotal),
+        },
     };
 
     const payRes = await fetch("https://api.xendit.co/sessions", {
@@ -215,11 +319,10 @@ export const createOrder = async (payload) => {
         referenceId: paymentRef,
         paymentRequestId: payData.payment_session_id,
         paymentLinkUrl: payData.payment_link_url,
-        amount: total,
+        amount: grandTotal, // Amount yang dibayar
         status: "PENDING",
         expiredAt: payData.expires_at,
     });
-
 
     const updatedOrder = await OrderRepository.updateOrder(order.id, {
         referenceId: paymentRef,
@@ -234,6 +337,10 @@ export const createOrder = async (payload) => {
         order: updatedOrder,
         payment_link: payData.payment_link_url,
         shipping_draft: shipData,
+        discount_applied: discountAmount > 0 ? {
+            code: discount.code,
+            amount: discountAmount,
+        } : null,
     };
 };
 
@@ -297,12 +404,109 @@ export const getOrderById = async (id) => {
     return order;
 };
 
+
+
+const confirmBiteshipOrder = async (draftOrderId) => {
+    try {
+        console.log('🚚 Confirming Biteship draft order:', draftOrderId);
+
+        const confirmRes = await fetch(
+            `https://api.biteship.com/v1/draft_orders/${draftOrderId}/confirm`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${process.env.BITESHIP_API_KEY}`,
+                },
+            }
+        );
+
+        const confirmData = await confirmRes.json();
+
+        if (!confirmRes.ok) {
+            console.error('❌ Biteship confirm error:', confirmData);
+            throw new Error(confirmData.message || confirmData.error || "Failed to confirm Biteship order");
+        }
+
+
+        return confirmData;
+    } catch (error) {
+        console.error('❌ Biteship confirm error:', error);
+        throw error;
+    }
+};
+
 export const acceptOrder = async (id) => {
     const order = await OrderRepository.findOrderById(id);
     if (!order) {
         throw new Error("Order not found");
     }
-    console.log(order);
 
-    return await OrderRepository.updateOrder(order.id, { status: "PACKED" });
+    if (order.status !== 'NEW') {
+        throw new Error(`Cannot accept order with status: ${order.status}. Order must be in NEW status.`);
+    }
+
+    if (!order.bytestepShipmentId) {
+        throw new Error("No Biteship draft order ID found for this order");
+    }
+
+    let confirmedShipment;
+    try {
+        confirmedShipment = await confirmBiteshipOrder(order.bytestepShipmentId);
+    } catch (biteshipError) {
+        console.error('❌ Failed to confirm Biteship order:', biteshipError);
+        throw new Error(`Failed to confirm shipping: ${biteshipError.message}`);
+    }
+
+    try {
+        await prisma.shipmentTracking.create({
+            data: {
+                id: uuid(),
+                orderId: order.id,
+                courier: confirmedShipment.courier.company,
+                trackingId: confirmedShipment.courier.tracking_id,
+                waybillId: confirmedShipment.courier.waybill_id || null,
+                trackingLink: confirmedShipment.courier.link || null,
+                estimatedDelivery: confirmedShipment.delivery?.datetime
+                    ? new Date(confirmedShipment.delivery.datetime)
+                    : null,
+            },
+        });
+
+        console.log('✅ Tracking info saved:', {
+            trackingId: confirmedShipment.courier.tracking_id,
+            waybillId: confirmedShipment.courier.waybill_id,
+            trackingLink: confirmedShipment.courier.link,
+        });
+    } catch (dbError) {
+        console.error('❌ Failed to save tracking info:', dbError);
+    }
+
+    const updatedOrder = await OrderRepository.updateAcceptOrder(order.id, {
+        status: "PACKED"
+    });
+
+    await prisma.orderStatusLog.create({
+        data: {
+            id: uuid(),
+            orderId: order.id,
+            status: 'PACKED',
+        },
+    });
+
+    console.log('✅ Order accepted and packed:', {
+        orderId: order.id,
+        status: 'PACKED',
+        trackingId: confirmedShipment.courier.tracking_id,
+    });
+
+    return {
+        ...updatedOrder,
+        tracking: {
+            trackingId: confirmedShipment.courier.tracking_id,
+            waybillId: confirmedShipment.courier.waybill_id,
+            trackingLink: confirmedShipment.courier.link,
+            courier: confirmedShipment.courier.company,
+        },
+    };
 };

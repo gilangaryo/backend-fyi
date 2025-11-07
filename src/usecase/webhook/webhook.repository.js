@@ -5,6 +5,11 @@ export async function findPaymentByXenditId(paymentRequestId) {
         where: { paymentRequestId },
     })
 }
+export async function findPaymentByReferenceId(referenceId) {
+    return prisma.payment.findFirst({
+        where: { referenceId: referenceId },
+    })
+}
 
 export async function updatePaymentStatusByXenditId(payment_session_id, status) {
     return prisma.payment.updateMany({

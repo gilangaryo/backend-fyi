@@ -56,6 +56,8 @@ model Product {
   categoryId   String?
   collection   Collection?      @relation(fields: [collectionId], references: [id])
   collectionId String?
+  kain         Kain?            @relation(fields: [kainId], references: [id])
+  kainId       String?
 
   orderItems OrderItem[]
 
@@ -64,6 +66,7 @@ model Product {
   @@index([collectionId])
   @@index([createdAt])
   @@index([price])
+  @@index([kainId])
   @@index([stock])
   @@index([title])
 }
@@ -98,6 +101,18 @@ model ProductImage {
   updatedAt DateTime @updatedAt
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+/// Kain / Fabric
+model Kain {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@index([name])
 }
 
 /// Category & Collection
@@ -194,8 +209,9 @@ model Order {
   statusLogs      OrderStatusLog[]
   tracking        ShipmentTracking[]
   shippingAddress ShippingAddress?   @relation(fields: [shippingAddressId], references: [id])
-  discount        Discount?          @relation(fields: [discountId], references: [id])
-  payments        Payment[]
+
+  discount Discount? @relation(fields: [discountId], references: [id])
+  payments Payment[]
 
   @@index([userId])
   @@index([status])
@@ -234,19 +250,24 @@ model OrderStatusLog {
 
 /// Shipping
 model ShippingAddress {
-  id             String   @id @default(uuid())
-  userId         String
+  id        String @id @default(uuid())
+  userId    String
+  firstName String
+  lastName  String
+
   country        String
-  firstName      String
-  lastName       String
-  address        String   @db.Text
-  addressDetails String?  @db.Text
-  city           String
-  province       String
-  postalCode     String
-  phone          String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  address        String  @db.Text
+  addressDetails String? @db.Text
+
+  city       String?
+  province   String?
+  district   String?
+  village    String?
+  postalCode String?
+  phone      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user   User    @relation(fields: [userId], references: [id])
   orders Order[]
@@ -261,6 +282,8 @@ model ShipmentTracking {
   orderId           String
   courier           String
   trackingId        String
+  waybillId         String?
+  trackingLink      String?
   estimatedDelivery DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -269,6 +292,7 @@ model ShipmentTracking {
 
   @@index([orderId])
   @@index([courier])
+  @@index([trackingId])
 }
 
 /// Discounts / Coupons
@@ -281,8 +305,10 @@ model Discount {
   expiresAt          DateTime
   usedCount          Int          @default(0)
   minimumOrderAmount Decimal?     @db.Decimal(18, 2)
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  status             Boolean      @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   orders Order[]
 
@@ -335,12 +361,17 @@ model Blog {
   secondDescription String? @db.Text
 
   // Section 3
-  thirdHeaderImage String?
-  thirdHeading     String?
-  thirdDescription String? @db.Text
-  thirdQuote       String?
+  thirdHeaderImage    String?
+  thirdHeading        String?
+  thirdDescription    String? @db.Text
+  thirdSubDescription String? @db.Text
 
-  // Section 4
+  imageDivider      String?
+  quote             String?
+  firstFooterImage  String?
+  secondFooterImage String?
+
+  // Section 4 tdk pakai
   fourthHeaderImage String?
   fourthHeading     String?
   fourthDescription String? @db.Text
@@ -357,4 +388,24 @@ model Setting {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Subscriber {
+  id             String           @id @default(uuid())
+  email          String           @unique
+  name           String?
+  source         String?
+  isVerified     Boolean          @default(false)
+  subscribedAt   DateTime         @default(now())
+  unsubscribedAt DateTime?
+  status         SubscriberStatus @default(ACTIVE)
+
+  @@index([email])
+}
+
+enum SubscriberStatus {
+  ACTIVE
+  UNSUBSCRIBED
+  BOUNCED
+  PENDING
 }

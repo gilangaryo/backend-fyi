@@ -2,8 +2,6 @@ import * as OrderService from "./order.service.js";
 
 export const createOrder = async (req, res) => {
     try {
-        console.log("infoo");
-        console.log(req.body);
 
         const order = await OrderService.createOrder(req.body);
         res.status(201).json({
@@ -62,10 +60,34 @@ export const acceptOrder = async (req, res) => {
     try {
         const order = await OrderService.acceptOrder(req.params.id);
         if (!order) {
-            return res.status(404).json({ success: false, message: "Order not found" });
+            return res.status(404).json({
+                success: false,
+                message: "Order not found"
+            });
         }
-        return res.status(200).json({ success: true, message: "Order accepted successfully", data: order });
+
+        return res.status(200).json({
+            success: true,
+            message: "Order accepted and shipping confirmed successfully",
+            data: order
+        });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        console.error('❌ Accept order error:', err);
+
+        let statusCode = 500;
+        let message = err.message;
+
+        if (message.includes('not found')) {
+            statusCode = 404;
+        } else if (message.includes('Cannot accept order')) {
+            statusCode = 400;
+        } else if (message.includes('Failed to confirm shipping')) {
+            statusCode = 502;
+        }
+
+        return res.status(statusCode).json({
+            success: false,
+            message
+        });
     }
 };

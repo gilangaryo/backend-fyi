@@ -39,4 +39,38 @@ router.put("/store-status", async (req, res) => {
 });
 
 
+// setting default courier 
+router.get("/default-courier", async (req, res) => {
+    const setting = await prisma.setting.findUnique({
+        where: { key: "default_courier" },
+    });
+    res.json({
+        success: true,
+        data: {
+            value: setting?.value
+        },
+    });
+});
+
+router.put("/default-courier", async (req, res) => {
+    const { courier } = req.body;
+
+    await prisma.setting.upsert({
+        where: {
+            key: "default_courier"
+        },
+        update: {
+            value: courier
+        },
+        create: {
+            key: "default_courier",
+            value: courier
+        },
+    });
+
+    res.json({
+        success: true,
+        message: `Default courier is now ${courier}.`,
+    });
+});
 export default router

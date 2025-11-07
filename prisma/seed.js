@@ -75,6 +75,35 @@ async function main() {
     }
 
     // ======================================================
+    // 3.5️⃣ KAIN (FABRIC)
+    // ======================================================
+    console.log("🧵 Creating kain...");
+
+    const kainList = [
+        { name: "Shibori Cotton" },
+        { name: "Kain Bali" },
+        { name: "Sumba Fabric" },
+        { name: "Lombok Tenun" },
+    ];
+
+    const kainRecords = {};
+
+    for (const k of kainList) {
+        const slug = slugify(k.name, { lower: true, strict: true });
+
+        const record = await prisma.kain.upsert({
+            where: { slug },
+            update: {},
+            create: {
+                name: k.name,
+                slug,
+            },
+        });
+
+        kainRecords[k.name] = record.id;
+    }
+
+    // ======================================================
     // 3️⃣ CATEGORIES
     // ======================================================
     console.log("📦 Creating categories...");
@@ -163,6 +192,9 @@ async function main() {
                 )}`, // default preview pakai front
                 categoryId: categoryRecords[p.category],
                 collectionId: collectionRecords[p.collection],
+
+                kainId: kainRecords["Shibori Cotton"],
+
                 details:
                     "Soft as air, close as a whisper. This fabric clings like a lover, weightless, breathable, and made to move with you.",
                 delivery: "Free delivery",
@@ -271,7 +303,7 @@ async function main() {
 
     const blogs = [
         {
-            event: "FYI x Kendra Art Space: ",
+            event: "FYI x Kendra Art Space ",
             title: "The Journey of Becoming",
             description:
                 "Through collaborations with artists, performers, and visionaries, FYI celebrates individuality and creative expression. From editorial photo series and visual installations to intimate showcases and performing arts collaborations, we bring together diverse talents to shape experiences that inspire and move.",
@@ -279,37 +311,38 @@ async function main() {
                 lower: true,
                 strict: true,
             }),
+
             heroImage: "/uploads/blog/hero-image.jpg",
+
+            // ✅ FIRST SECTION
             firstHeaderImage: "/uploads/blog/blog-1.png",
             firstHeading: "In summer 2025 instead of this summer",
             firstDescription:
                 "FYI collaborates with Tanya Bourgeois Cayer, a dancer from Canada who now calls Bali her creative home. The collection is born from movement, rhythm, and the quiet confidence that comes from being one with your body and the island air.",
+
+            // ✅ SECOND SECTION
             secondHeaderImage: "/uploads/blog/blog-2.png",
             secondHeading: "The collaboration celebrates the harmony between dance and design.",
             secondDescription:
                 "Tanya’s graceful movement becomes the language that brings the pieces to life, while FYI translates that rhythm into fluid forms that flow naturally with every step and gesture.",
 
-        },
-        {
-            event: "White Canvas:",
-            title: "The Art of Minimal Fashion",
-            description:
-                "Why less is more—exploring FYI Couture’s timeless minimalist philosophy.",
-            slug: slugify("White Canvas: The Art of Minimal Fashion", {
-                lower: true,
-                strict: true,
-            }),
-            heroImage: "/uploads/blog/hero-image.jpg",
-            firstHeaderImage: "/uploads/blog/blog-1.png",
-            firstHeading: "Simplicity Speaks",
-            firstDescription:
-                "White Canvas embodies purity and openness—each design is a statement of effortless style.",
-            secondHeaderImage: "/uploads/blog/blog-2.png",
-            secondHeading: "Craft",
-            secondDescription:
-                "Our artisans create silhouettes that allow fabric, form, and texture to breathe in harmony.",
+            // ✅ THIRD SECTION (BARU)
+            thirdHeaderImage: "/uploads/blog/blog-1762413777311-622681306.jpg",
+            thirdHeading: "Soft textures, sheer layers, and earthy tones define this summer story.",
+            thirdDescription:
+                "Each piece moves effortlessly with the wind, carrying the warmth of the sun and the softness of the sea.",
+            thirdSubDescription: "It is fashion that breathes and follows your motion.",
 
-        },
+            // ✅ DIVIDER + QUOTE
+            imageDivider: "/uploads/blog/blog-1762413770029-808058037.jpg",
+            quote:
+                "Through Tanya’s artistry, every garment becomes more than clothing.  It becomes an expression of freedom, presence, and feminine grace. FYI captures this spirit through craftsmanship that celebrates natural beauty and authenticity.",
+
+            // ✅ FOOTER IMAGES
+            firstFooterImage: "/uploads/blog/blog-1762413773926-328733532.jpg",
+            secondFooterImage: "/uploads/blog/blog-1762413775292-667414092.jpg",
+        }
+
     ];
 
     for (const blog of blogs) {
@@ -319,6 +352,7 @@ async function main() {
             create: blog,
         });
     }
+
 
     // ======================================================
     // 7️⃣ SETTINGS
@@ -338,6 +372,12 @@ async function main() {
         where: { key: "store_status" },
         update: {},
         create: { key: "store_status", value: "open" },
+    });
+
+    await prisma.setting.upsert({
+        where: { key: "default_courier" },
+        update: {},
+        create: { key: "default_courier", value: "sicepat" },
     });
     console.log("✅ Seeding completed successfully!");
 }

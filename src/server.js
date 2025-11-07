@@ -30,9 +30,9 @@ import dashboardRoutes from './routes/dashboard.route.js';
 // import userRoutes from './routes/user.route.js';
 import blogRoute from "./routes/blog.route.js";
 import settingRoutes from "./routes/setting.route.js";
-
-
-
+import subscribeRoutes from "./routes/subscribe.route.js";
+import discountRoutes from "./routes/discount.route.js";
+import kainRoutes from "./routes/kain.route.js";
 
 dotenv.config();
 
@@ -115,6 +115,9 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/coupon', couponRoutes);
 app.use('/api/wilayah', wilayahRoutes)
 app.use('/api/setting', settingRoutes)
+app.use('/api/subscribe', subscribeRoutes);
+app.use('/api/discounts', discountRoutes);
+app.use('/api/kain', kainRoutes);
 
 
 

@@ -1,5 +1,4 @@
 import slugify from 'slugify'
-import { Prisma } from '@prisma/client'
 import {
     findAllProducts,
     findProductById,
@@ -49,6 +48,7 @@ export async function createProduct(data) {
         images,
         variants,
         status,
+        kainId
     } = data
 
     console.log(data);
@@ -82,6 +82,7 @@ export async function createProduct(data) {
         status: status ?? true,
         images: images ? { create: images } : undefined,
         variants: variants ? { create: variants } : undefined,
+        kainId
     })
 }
 
@@ -100,6 +101,7 @@ export async function updateProduct(id, data) {
         images,
         variants,
         status,
+        kainId
     } = data
 
     const existing = await findProductById(id)
@@ -129,6 +131,8 @@ export async function updateProduct(id, data) {
     if (categoryId !== undefined) updateData.categoryId = categoryId
     if (collectionId !== undefined) updateData.collectionId = collectionId
     if (status !== undefined) updateData.status = status
+
+    if (kainId !== undefined) updateData.kainId = kainId
 
     const totalStock =
         Array.isArray(variants) && variants.length > 0

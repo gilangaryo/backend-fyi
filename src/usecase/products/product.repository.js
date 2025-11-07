@@ -27,6 +27,7 @@ export async function findAllProducts(statusFilter, search, skip = 0, limit = 12
                 images: true,
                 category: true,
                 collection: true,
+                kain: true,
             },
         }),
     ])
@@ -94,6 +95,7 @@ export async function findProductById(id) {
             images: true,
             category: true,
             collection: true,
+            kain: true,
         },
     });
 }

@@ -27,6 +27,16 @@ export const findOrderById = async (id) => {
                     phone: true
                 }
             },
+            shippingAddress: true,
+            discount: {
+                select: {
+                    id: true,
+                    code: true,
+                    type: true,
+                    value: true,
+                }
+            },
+            tracking: true
         },
     });
 };
@@ -46,6 +56,7 @@ export const findAllOrdersPaginated = async (where, skip, limit) => {
             items: { include: { product: true } },
             payments: { select: { status: true } },
             shippingAddress: true,
+            tracking: true
         },
         orderBy: { createdAt: "desc" },
         skip,
@@ -55,4 +66,11 @@ export const findAllOrdersPaginated = async (where, skip, limit) => {
 
 export const countOrders = async (where) => {
     return await prisma.order.count({ where });
+};
+
+export const updateAcceptOrder = async (id, data) => {
+    return await prisma.order.update({
+        where: { id },
+        data,
+    });
 };
