@@ -31,6 +31,7 @@ CREATE TABLE `Product` (
     `updatedAt` DATETIME(3) NOT NULL,
     `categoryId` VARCHAR(191) NULL,
     `collectionId` VARCHAR(191) NULL,
+    `kainId` VARCHAR(191) NULL,
 
     UNIQUE INDEX `Product_slug_key`(`slug`),
     UNIQUE INDEX `Product_sku_key`(`sku`),
@@ -38,6 +39,7 @@ CREATE TABLE `Product` (
     INDEX `Product_collectionId_idx`(`collectionId`),
     INDEX `Product_createdAt_idx`(`createdAt`),
     INDEX `Product_price_idx`(`price`),
+    INDEX `Product_kainId_idx`(`kainId`),
     INDEX `Product_stock_idx`(`stock`),
     INDEX `Product_title_idx`(`title`),
     PRIMARY KEY (`id`)
@@ -71,6 +73,20 @@ CREATE TABLE `ProductImage` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `Kain` (
+    `id` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `slug` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `Kain_name_key`(`name`),
+    UNIQUE INDEX `Kain_slug_key`(`slug`),
+    INDEX `Kain_name_idx`(`name`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -201,15 +217,17 @@ CREATE TABLE `OrderStatusLog` (
 CREATE TABLE `ShippingAddress` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
-    `country` VARCHAR(191) NOT NULL,
     `firstName` VARCHAR(191) NOT NULL,
     `lastName` VARCHAR(191) NOT NULL,
+    `country` VARCHAR(191) NOT NULL,
     `address` TEXT NOT NULL,
     `addressDetails` TEXT NULL,
-    `city` VARCHAR(191) NOT NULL,
-    `province` VARCHAR(191) NOT NULL,
-    `postalCode` VARCHAR(191) NOT NULL,
-    `phone` VARCHAR(191) NOT NULL,
+    `city` VARCHAR(191) NULL,
+    `province` VARCHAR(191) NULL,
+    `district` VARCHAR(191) NULL,
+    `village` VARCHAR(191) NULL,
+    `postalCode` VARCHAR(191) NULL,
+    `phone` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -225,12 +243,15 @@ CREATE TABLE `ShipmentTracking` (
     `orderId` VARCHAR(191) NOT NULL,
     `courier` VARCHAR(191) NOT NULL,
     `trackingId` VARCHAR(191) NOT NULL,
+    `waybillId` VARCHAR(191) NULL,
+    `trackingLink` VARCHAR(191) NULL,
     `estimatedDelivery` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
     INDEX `ShipmentTracking_orderId_idx`(`orderId`),
     INDEX `ShipmentTracking_courier_idx`(`courier`),
+    INDEX `ShipmentTracking_trackingId_idx`(`trackingId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -244,6 +265,7 @@ CREATE TABLE `Discount` (
     `expiresAt` DATETIME(3) NOT NULL,
     `usedCount` INTEGER NOT NULL DEFAULT 0,
     `minimumOrderAmount` DECIMAL(18, 2) NULL,
+    `status` BOOLEAN NOT NULL DEFAULT true,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -271,6 +293,11 @@ CREATE TABLE `Blog` (
     `thirdHeaderImage` VARCHAR(191) NULL,
     `thirdHeading` VARCHAR(191) NULL,
     `thirdDescription` TEXT NULL,
+    `thirdSubDescription` TEXT NULL,
+    `imageDivider` VARCHAR(191) NULL,
+    `quote` VARCHAR(191) NULL,
+    `firstFooterImage` VARCHAR(191) NULL,
+    `secondFooterImage` VARCHAR(191) NULL,
     `fourthHeaderImage` VARCHAR(191) NULL,
     `fourthHeading` VARCHAR(191) NULL,
     `fourthDescription` TEXT NULL,
@@ -294,11 +321,30 @@ CREATE TABLE `Setting` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- CreateTable
+CREATE TABLE `Subscriber` (
+    `id` VARCHAR(191) NOT NULL,
+    `email` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NULL,
+    `source` VARCHAR(191) NULL,
+    `isVerified` BOOLEAN NOT NULL DEFAULT false,
+    `subscribedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `unsubscribedAt` DATETIME(3) NULL,
+    `status` ENUM('ACTIVE', 'UNSUBSCRIBED', 'BOUNCED', 'PENDING') NOT NULL DEFAULT 'ACTIVE',
+
+    UNIQUE INDEX `Subscriber_email_key`(`email`),
+    INDEX `Subscriber_email_idx`(`email`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- AddForeignKey
 ALTER TABLE `Product` ADD CONSTRAINT `Product_categoryId_fkey` FOREIGN KEY (`categoryId`) REFERENCES `Category`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Product` ADD CONSTRAINT `Product_collectionId_fkey` FOREIGN KEY (`collectionId`) REFERENCES `Collection`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Product` ADD CONSTRAINT `Product_kainId_fkey` FOREIGN KEY (`kainId`) REFERENCES `Kain`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `ProductVariant` ADD CONSTRAINT `ProductVariant_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
