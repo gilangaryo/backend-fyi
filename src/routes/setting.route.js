@@ -12,32 +12,78 @@ router.put('/announcement/:key', requireAuth, requireAdmin, settingController.up
 router.delete('/announcement/:key', requireAuth, requireAdmin, settingController.delete)
 
 router.get("/store-status", async (req, res) => {
+    try {
+        const [statusSetting, closedMessageSetting] = await Promise.all([
+            prisma.setting.findUnique({
+                where: { key: "store_status" },
+            }),
+            prisma.setting.findUnique({
+                where: { key: "store_closed_message" },
+            })
+        ]);
 
-    const setting = await prisma.setting.findUnique({
-        where: { key: "store_status" },
-    });
-    res.json({
-        success: true,
-        data: { isOpen: setting?.value === "open" },
-    });
+        res.json({
+            success: true,
+            data: {
+                isOpen: statusSetting?.value === "open",
+                closedMessage: closedMessageSetting?.value || "Our store is currently closed — orders are temporarily unavailable."
+            },
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
 });
 
-router.put("/store-status", async (req, res) => {
-    const { isOpen } = req.body;
-    await prisma.setting.upsert({
-        where: { key: "store_status" },
-        update: {
-            value: isOpen ? "open" : "closed",
-            isActive: isOpen ? true : false
-        },
-        create: { key: "store_status", value: isOpen ? "open" : "closed" },
-    });
-    res.json({
-        success: true,
-        message: `Store is now ${isOpen ? "OPEN" : "CLOSED"}.`,
-    });
-});
+router.put("/store-status", requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { isOpen, closedMessage } = req.body;
 
+        await prisma.setting.upsert({
+            where: { key: "store_status" },
+            update: {
+                value: isOpen ? "open" : "closed",
+                isActive: isOpen ? true : false
+            },
+            create: {
+                key: "store_status",
+                value: isOpen ? "open" : "closed",
+                isActive: isOpen ? true : false
+            },
+        });
+
+        if (closedMessage !== undefined && !isOpen) {
+            await prisma.setting.upsert({
+                where: { key: "store_closed_message" },
+                update: {
+                    value: closedMessage,
+                    isActive: true
+                },
+                create: {
+                    key: "store_closed_message",
+                    value: closedMessage,
+                    isActive: true
+                },
+            });
+        }
+
+        res.json({
+            success: true,
+            message: `Store is now ${isOpen ? "OPEN" : "CLOSED"}.`,
+            data: {
+                isOpen,
+                closedMessage: !isOpen ? closedMessage : null
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
 
 // setting default courier 
 router.get("/default-courier", async (req, res) => {
@@ -52,7 +98,7 @@ router.get("/default-courier", async (req, res) => {
     });
 });
 
-router.put("/default-courier", async (req, res) => {
+router.put("/default-courier", requireAuth, requireAdmin, async (req, res) => {
     const { courier } = req.body;
 
     await prisma.setting.upsert({
@@ -73,4 +119,5 @@ router.put("/default-courier", async (req, res) => {
         message: `Default courier is now ${courier}.`,
     });
 });
+
 export default router

@@ -39,7 +39,7 @@ export async function createCategory(data) {
 
     const existing = await findCategoryBySlug(slug);
     if (existing) {
-        throw new Error('Category with this title already exists');
+        return existing;
     }
 
     return insertCategory({

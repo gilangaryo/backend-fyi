@@ -1,7 +1,14 @@
 import prisma from '../../prisma/client.js';
 
 // ambil semua produk
-export async function findAllProducts(statusFilter, search, skip = 0, limit = 12) {
+export async function findAllProducts(
+    statusFilter,
+    search,
+    skip = 0,
+    limit = 12,
+    sortBy = 'createdAt',
+    sortOrder = 'desc'
+) {
     const whereClause = {
         ...(statusFilter !== undefined ? { status: statusFilter } : {}),
         ...(search
@@ -15,13 +22,29 @@ export async function findAllProducts(statusFilter, search, skip = 0, limit = 12
             : {}),
     }
 
+    // ✅ Determine orderBy based on sortBy parameter
+    let orderBy = {}
+
+    if (sortBy === 'stock') {
+        orderBy = { stock: sortOrder === 'desc' ? 'desc' : 'asc' }
+    } else if (sortBy === 'price') {
+        orderBy = { price: sortOrder === 'desc' ? 'desc' : 'asc' }
+    } else if (sortBy === 'title') {
+        orderBy = { title: sortOrder === 'desc' ? 'desc' : 'asc' }
+    } else if (sortBy === 'createdAt') {
+        orderBy = { createdAt: sortOrder === 'desc' ? 'desc' : 'asc' }
+    } else {
+        // Default: newest first
+        orderBy = { createdAt: 'desc' }
+    }
+
     const [total, products] = await prisma.$transaction([
         prisma.product.count({ where: whereClause }),
         prisma.product.findMany({
             where: whereClause,
             skip,
             take: limit,
-            orderBy: { createdAt: 'desc' },
+            orderBy, // ✅ Apply dynamic orderBy
             include: {
                 variants: true,
                 images: true,
@@ -34,7 +57,6 @@ export async function findAllProducts(statusFilter, search, skip = 0, limit = 12
 
     return { products, total }
 }
-
 
 export async function findSuggestedProducts(statusFilter, limit) {
     const totalCount = await prisma.product.count({
@@ -154,28 +176,54 @@ export async function updateProductData(id, data, relationalData = {}) {
         }
 
         if (variants !== undefined) {
-            await tx.productVariant.deleteMany({ where: { productId: id } });
-            const cleanVariants = variants.filter(v => v.size?.trim() !== "");
+            const existingVariants = await tx.productVariant.findMany({
+                where: { productId: id },
+                select: { id: true },
+            });
 
-            if (cleanVariants.length > 0) {
-                await tx.productVariant.createMany({
-                    data: cleanVariants.map((v) => ({
-                        productId: id,
-                        size: v.size || null,
-                        color: v.color || null,
-                        stock: v.stock ?? 0,
-                        sku: v.sku || null,
-                        bust: v.bust || null,
-                        waist: v.waist || null,
-                        length: v.length || null,
-                        sleeve: v.sleeve || null,
-                        height: v.height || null,
-                    })),
-                });
+            const existingIds = existingVariants.map(v => v.id);
+            const incomingIds = variants.filter(v => v.id).map(v => v.id);
+
+            const toDelete = existingIds.filter(id => !incomingIds.includes(id));
+            if (toDelete.length > 0) {
+                await tx.productVariant.deleteMany({ where: { id: { in: toDelete } } });
             }
 
+            for (const v of variants) {
+                if (v.id && existingIds.includes(v.id)) {
+                    await tx.productVariant.update({
+                        where: { id: v.id },
+                        data: {
+                            size: v.size,
+                            color: v.color,
+                            stock: v.stock,
+                            sku: v.sku,
+                            bust: v.bust,
+                            waist: v.waist,
+                            length: v.length,
+                            sleeve: v.sleeve,
+                            height: v.height,
+                        },
+                    });
+                } else {
+                    // create new
+                    await tx.productVariant.create({
+                        data: {
+                            productId: id,
+                            size: v.size || null,
+                            color: v.color || null,
+                            stock: v.stock ?? 0,
+                            sku: v.sku || null,
+                            bust: v.bust || null,
+                            waist: v.waist || null,
+                            length: v.length || null,
+                            sleeve: v.sleeve || null,
+                            height: v.height || null,
+                        },
+                    });
+                }
+            }
         }
-
 
         return tx.product.findUnique({
             where: { id },
@@ -188,6 +236,7 @@ export async function updateProductData(id, data, relationalData = {}) {
         });
     });
 }
+
 // hapus produk
 export async function deleteProductData(id) {
     return prisma.product.delete({ where: { id } });

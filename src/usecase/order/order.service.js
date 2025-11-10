@@ -36,7 +36,7 @@ export const createOrder = async (payload) => {
         if (!variant) throw new Error(`Variant ${item.variantId} tidak ditemukan`);
 
         if (variant.stock < item.quantity) {
-            throw new Error(`${variant.product.title} (${variant.size}) stok tidak cukup`);
+            throw new Error(`${variant.product.title} (${variant.size}) stok habis`);
         }
 
         return {

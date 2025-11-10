@@ -11,14 +11,29 @@ import {
 // get all
 export async function handleGetProducts(req, res) {
     try {
-        const { search, page = 1, limit = 12, status } = req.query
+        const { search, page = 1, limit = 12, status, all, sortBy, sortOrder } = req.query
 
         const statusFilter =
-            status === 'false'
-                ? false
-                : status === 'true'
-                    ? true
-                    : undefined
+            status === 'false' ? false : status === 'true' ? true : undefined
+
+        if (all === 'true') {
+            const { products, total } = await getAllProducts({
+                statusFilter,
+                search,
+                skip: 0,
+                limit: 10000,
+                sortBy,
+                sortOrder,
+            })
+
+            return res.status(200).json({
+                success: true,
+                status: 200,
+                message: 'All products retrieved successfully',
+                data: products,
+                total,
+            })
+        }
 
         const pageNum = Math.max(Number(page), 1)
         const limitNum = Math.max(Number(limit), 1)
@@ -29,6 +44,8 @@ export async function handleGetProducts(req, res) {
             search,
             skip,
             limit: limitNum,
+            sortBy,
+            sortOrder,
         })
 
         const totalPages = Math.ceil(total / limitNum)
@@ -54,7 +71,6 @@ export async function handleGetProducts(req, res) {
         })
     }
 }
-
 
 // suggested
 export async function handleGetSuggestedProducts(req, res) {

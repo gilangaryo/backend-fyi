@@ -13,7 +13,7 @@ export const createOrder = async (req, res) => {
         console.error("❌ Create Order Error:", err);
         res.status(500).json({
             success: false,
-            message: err.message || "Failed to create order",
+            message: err.message,
         });
     }
 };

@@ -59,7 +59,8 @@ model Product {
   kain         Kain?            @relation(fields: [kainId], references: [id])
   kainId       String?
 
-  orderItems OrderItem[]
+  orderItems        OrderItem[]
+  suggestedProducts SuggestedProduct[]
 
   // indexes
   @@index([categoryId])
@@ -408,4 +409,20 @@ enum SubscriberStatus {
   UNSUBSCRIBED
   BOUNCED
   PENDING
+}
+
+model SuggestedProduct {
+  id        String  @id @default(cuid())
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
+
+  position Int     @default(0)
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([isActive])
+  @@index([position])
 }

@@ -10,8 +10,8 @@ import {
 } from './product.repository.js'
 
 // get all
-export async function getAllProducts({ statusFilter, search, skip, limit }) {
-    return findAllProducts(statusFilter, search, skip, limit)
+export async function getAllProducts({ statusFilter, search, skip, limit, sortBy, sortOrder }) {
+    return findAllProducts(statusFilter, search, skip, limit, sortBy, sortOrder)
 }
 
 export async function getSuggestedProducts(statusFilter, limit) {
@@ -146,7 +146,6 @@ export async function updateProduct(id, data) {
     const updated = await updateProductData(id, updateData, relationalData)
     return updated
 }
-
 
 // delete
 export async function removeProduct(id) {

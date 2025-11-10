@@ -33,6 +33,11 @@ import settingRoutes from "./routes/setting.route.js";
 import subscribeRoutes from "./routes/subscribe.route.js";
 import discountRoutes from "./routes/discount.route.js";
 import kainRoutes from "./routes/kain.route.js";
+import cartRoutes from "./routes/cart.route.js";
+import suggestedRoutes from "./routes/suggested.route.js";
+import reportRoutes from "./routes/report.route.js";
+import userRoutes from './routes/user.route.js';
+
 
 dotenv.config();
 
@@ -130,9 +135,13 @@ app.get('/restricted', requireAuth, (req, res) => {
 
 // app.use('/api/user', userRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/suggested-products', suggestedRoutes);
+app.use('/api/cart', cartRoutes);
 app.use('/api/collections', collectionRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/dashboard', requireAuth, requireAdmin, dashboardRoutes);
+app.use("/api/reports", requireAuth, requireAdmin, reportRoutes);
+app.use('/api/users', userRoutes);
 
 // 🛑 404
 app.use((req, res) => {
