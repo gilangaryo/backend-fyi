@@ -1,4 +1,4 @@
-import prisma from '../../prisma/client.js';
+import prisma from "../../prisma/client.js";
 
 export const reportRepository = {
     async getOrdersByDateRange(startDate, endDate, statuses) {
@@ -26,8 +26,21 @@ export const reportRepository = {
                     lte: endDate,
                 },
                 status: {
-                    in: ['CANCELLED', 'RETURNED', 'REFUNDED'],
+                    in: ["CANCELLED", "RETURNED", "REFUNDED"],
                 },
+            },
+        });
+    },
+    async getShippingCostOrdersCount(startDate, endDate) {
+        return prisma.order.findMany({
+            where: {
+                createdAt: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+            select: {
+                shippingCost: true,
             },
         });
     },
