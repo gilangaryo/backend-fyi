@@ -4,6 +4,8 @@ import * as OrderRepository from "./order.repository.js";
 import prisma from "../../prisma/client.js";
 import bcrypt from "bcryptjs";
 import getDefaultCourierType from "../../lib/courier.js";
+import { sendEmail } from "../../lib/mailer.js";
+import { acceptOrderTrackingTemplate } from "../../lib/templates/acceptOrder.js";
 export const createOrder = async (payload) => {
     const {
         email,
@@ -511,11 +513,11 @@ export const acceptOrder = async (id) => {
             },
         });
 
-        console.log("✅ Tracking info saved:", {
-            trackingId: confirmedShipment.courier.tracking_id,
-            waybillId: confirmedShipment.courier.waybill_id,
-            trackingLink: confirmedShipment.courier.link,
-        });
+        // console.log("✅ Tracking info saved:", {
+        //     trackingId: confirmedShipment.courier.tracking_id,
+        //     waybillId: confirmedShipment.courier.waybill_id,
+        //     trackingLink: confirmedShipment.courier.link,
+        // });
     } catch (dbError) {
         console.error("❌ Failed to save tracking info:", dbError);
     }
@@ -532,10 +534,24 @@ export const acceptOrder = async (id) => {
         },
     });
 
-    console.log("✅ Order accepted and packed:", {
-        orderId: order.id,
-        status: "PACKED",
-        trackingId: confirmedShipment.courier.tracking_id,
+    // console.log("✅ Order accepted and packed:", {
+    //     orderId: order.id,
+    //     status: "PACKED",
+    //     trackingId: confirmedShipment.courier.tracking_id,
+    // });
+
+    // send email to user tracking info
+
+    await sendEmail({
+        to: order.user.email,
+        subject: `Your Order Has Been Packed — Tracking Information`,
+        html: acceptOrderTrackingTemplate(order, {
+            trackingId: confirmedShipment.courier.tracking_id,
+            waybillId: confirmedShipment.courier.waybill_id,
+            trackingLink: confirmedShipment.courier.link,
+            courier: confirmedShipment.courier.company,
+            estimatedDelivery: confirmedShipment.delivery?.datetime || null,
+        }),
     });
 
     return {

@@ -17,15 +17,15 @@ export const findOrderById = async (id) => {
         where: { id },
         include: {
             items: {
-                include: { product: true },
+                include: { product: true, variant: true },
             },
             payments: true,
             user: {
                 select: {
                     name: true,
                     email: true,
-                    phone: true
-                }
+                    phone: true,
+                },
             },
             shippingAddress: true,
             discount: {
@@ -34,9 +34,9 @@ export const findOrderById = async (id) => {
                     code: true,
                     type: true,
                     value: true,
-                }
+                },
             },
-            tracking: true
+            tracking: true,
         },
     });
 };
@@ -56,7 +56,7 @@ export const findAllOrdersPaginated = async (where, skip, limit) => {
             items: { include: { product: true } },
             payments: { select: { status: true } },
             shippingAddress: true,
-            tracking: true
+            tracking: true,
         },
         orderBy: { createdAt: "desc" },
         skip,
