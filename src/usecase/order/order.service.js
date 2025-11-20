@@ -5,7 +5,16 @@ import prisma from "../../prisma/client.js";
 import bcrypt from "bcryptjs";
 import getDefaultCourierType from "../../lib/courier.js";
 export const createOrder = async (payload) => {
-    const { email, name, phone, address, items, shipping, giftNote, discountId } = payload;
+    const {
+        email,
+        name,
+        phone,
+        address,
+        items,
+        shipping,
+        giftNote,
+        discountId,
+    } = payload;
 
     if (!email || !items?.length) {
         throw new Error("email dan items wajib diisi");
@@ -29,14 +38,18 @@ export const createOrder = async (payload) => {
         },
     });
 
-    if (dbVariants.length !== items.length) throw new Error("Beberapa produk tidak ditemukan");
+    if (dbVariants.length !== items.length)
+        throw new Error("Beberapa produk tidak ditemukan");
 
     const basket = items.map((item) => {
         const variant = dbVariants.find((v) => v.id === item.variantId);
-        if (!variant) throw new Error(`Variant ${item.variantId} tidak ditemukan`);
+        if (!variant)
+            throw new Error(`Variant ${item.variantId} tidak ditemukan`);
 
         if (variant.stock < item.quantity) {
-            throw new Error(`${variant.product.title} (${variant.size}) stok habis`);
+            throw new Error(
+                `${variant.product.title} (${variant.size}) stok habis`
+            );
         }
 
         return {
@@ -66,15 +79,20 @@ export const createOrder = async (payload) => {
             throw new Error("Discount code has expired");
         }
 
-        if (discount.minimumOrderAmount && total < discount.minimumOrderAmount) {
+        if (
+            discount.minimumOrderAmount &&
+            total < discount.minimumOrderAmount
+        ) {
             throw new Error(
-                `Minimum order amount is IDR ${Number(discount.minimumOrderAmount).toLocaleString('id-ID')}`
+                `Minimum order amount is IDR ${Number(
+                    discount.minimumOrderAmount
+                ).toLocaleString("id-ID")}`
             );
         }
 
-        if (discount.type === 'PERCENT') {
+        if (discount.type === "PERCENT") {
             discountAmount = Math.floor((total * Number(discount.value)) / 100);
-        } else if (discount.type === 'VALUE') {
+        } else if (discount.type === "VALUE") {
             discountAmount = Number(discount.value);
         }
 
@@ -82,7 +100,7 @@ export const createOrder = async (payload) => {
             discountAmount = total;
         }
 
-        console.log('💰 Discount applied:', {
+        console.log("💰 Discount applied:", {
             code: discount.code,
             type: discount.type,
             value: discount.value,
@@ -96,8 +114,7 @@ export const createOrder = async (payload) => {
         where: { key: "default_courier" },
     });
     const defaultCourier = defaultCourierSetting.value;
-    const courierType = getDefaultCourierType(defaultCourier)
-
+    const courierType = getDefaultCourierType(defaultCourier);
 
     // const now = new Date()
     // const currentHour = now.getHours()
@@ -152,10 +169,10 @@ export const createOrder = async (payload) => {
         body: JSON.stringify(biteshipPayload),
     });
 
-
     const shipData = await shipRes.json();
-    console.log("shipdataaaaa ", shipData);
-    if (!shipRes.ok) throw new Error(shipData.message || "Gagal buat draft pengiriman");
+    // console.log("shipdataaaaa ", shipData);
+    if (!shipRes.ok)
+        throw new Error(shipData.message || "Gagal buat draft pengiriman");
 
     const shippingCost = Number(shipData.price || 0);
     const subTotal = total + shippingCost;
@@ -221,7 +238,7 @@ export const createOrder = async (payload) => {
                 },
             },
         });
-        console.log('✅ Discount usage count incremented');
+        console.log("✅ Discount usage count incremented");
     }
 
     // Buat payment link Xendit
@@ -256,7 +273,13 @@ export const createOrder = async (payload) => {
             name: `Discount - ${discount.code}`,
             net_unit_amount: -discountAmount,
             quantity: 1,
-            description: `${discount.type === 'PERCENT' ? `${discount.value}% OFF` : `IDR ${Number(discount.value).toLocaleString('id-ID')} OFF`}`,
+            description: `${
+                discount.type === "PERCENT"
+                    ? `${discount.value}% OFF`
+                    : `IDR ${Number(discount.value).toLocaleString(
+                          "id-ID"
+                      )} OFF`
+            }`,
             metadata: {
                 discount_id: discount.id,
                 discount_code: discount.code,
@@ -302,7 +325,11 @@ export const createOrder = async (payload) => {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            Authorization: "Basic " + Buffer.from(process.env.XENDIT_SECRET_KEY + ":").toString("base64"),
+            Authorization:
+                "Basic " +
+                Buffer.from(process.env.XENDIT_SECRET_KEY + ":").toString(
+                    "base64"
+                ),
         },
         body: JSON.stringify(paymentPayload),
     });
@@ -310,7 +337,8 @@ export const createOrder = async (payload) => {
     const payData = await payRes.json();
     console.log(paymentRef);
 
-    if (!payRes.ok) throw new Error(payData.message || "Failed to create Xendit session");
+    if (!payRes.ok)
+        throw new Error(payData.message || "Failed to create Xendit session");
 
     //  Simpan Payment & update Order
     await OrderRepository.createPayment({
@@ -337,10 +365,13 @@ export const createOrder = async (payload) => {
         order: updatedOrder,
         payment_link: payData.payment_link_url,
         shipping_draft: shipData,
-        discount_applied: discountAmount > 0 ? {
-            code: discount.code,
-            amount: discountAmount,
-        } : null,
+        discount_applied:
+            discountAmount > 0
+                ? {
+                      code: discount.code,
+                      amount: discountAmount,
+                  }
+                : null,
     };
 };
 
@@ -362,9 +393,12 @@ async function getOrCreateUserByEmail(email, name, phone) {
     return user;
 }
 
-
-
-export const getAllOrders = async ({ page = 1, limit = 10, search = "", status = "" }) => {
+export const getAllOrders = async ({
+    page = 1,
+    limit = 10,
+    search = "",
+    status = "",
+}) => {
     const skip = (page - 1) * limit;
 
     //  Build filter
@@ -397,18 +431,15 @@ export const getAllOrders = async ({ page = 1, limit = 10, search = "", status =
     };
 };
 
-
 export const getOrderById = async (id) => {
     const order = await OrderRepository.findOrderById(id);
     if (!order) throw new Error("Order not found");
     return order;
 };
 
-
-
 const confirmBiteshipOrder = async (draftOrderId) => {
     try {
-        console.log('🚚 Confirming Biteship draft order:', draftOrderId);
+        console.log("🚚 Confirming Biteship draft order:", draftOrderId);
 
         const confirmRes = await fetch(
             `https://api.biteship.com/v1/draft_orders/${draftOrderId}/confirm`,
@@ -424,14 +455,17 @@ const confirmBiteshipOrder = async (draftOrderId) => {
         const confirmData = await confirmRes.json();
 
         if (!confirmRes.ok) {
-            console.error('❌ Biteship confirm error:', confirmData);
-            throw new Error(confirmData.message || confirmData.error || "Failed to confirm Biteship order");
+            console.error("❌ Biteship confirm error:", confirmData);
+            throw new Error(
+                confirmData.message ||
+                    confirmData.error ||
+                    "Failed to confirm Biteship order"
+            );
         }
-
 
         return confirmData;
     } catch (error) {
-        console.error('❌ Biteship confirm error:', error);
+        console.error("❌ Biteship confirm error:", error);
         throw error;
     }
 };
@@ -442,8 +476,10 @@ export const acceptOrder = async (id) => {
         throw new Error("Order not found");
     }
 
-    if (order.status !== 'NEW') {
-        throw new Error(`Cannot accept order with status: ${order.status}. Order must be in NEW status.`);
+    if (order.status !== "NEW") {
+        throw new Error(
+            `Cannot accept order with status: ${order.status}. Order must be in NEW status.`
+        );
     }
 
     if (!order.bytestepShipmentId) {
@@ -452,9 +488,11 @@ export const acceptOrder = async (id) => {
 
     let confirmedShipment;
     try {
-        confirmedShipment = await confirmBiteshipOrder(order.bytestepShipmentId);
+        confirmedShipment = await confirmBiteshipOrder(
+            order.bytestepShipmentId
+        );
     } catch (biteshipError) {
-        console.error('❌ Failed to confirm Biteship order:', biteshipError);
+        console.error("❌ Failed to confirm Biteship order:", biteshipError);
         throw new Error(`Failed to confirm shipping: ${biteshipError.message}`);
     }
 
@@ -473,30 +511,30 @@ export const acceptOrder = async (id) => {
             },
         });
 
-        console.log('✅ Tracking info saved:', {
+        console.log("✅ Tracking info saved:", {
             trackingId: confirmedShipment.courier.tracking_id,
             waybillId: confirmedShipment.courier.waybill_id,
             trackingLink: confirmedShipment.courier.link,
         });
     } catch (dbError) {
-        console.error('❌ Failed to save tracking info:', dbError);
+        console.error("❌ Failed to save tracking info:", dbError);
     }
 
     const updatedOrder = await OrderRepository.updateAcceptOrder(order.id, {
-        status: "PACKED"
+        status: "PACKED",
     });
 
     await prisma.orderStatusLog.create({
         data: {
             id: uuid(),
             orderId: order.id,
-            status: 'PACKED',
+            status: "PACKED",
         },
     });
 
-    console.log('✅ Order accepted and packed:', {
+    console.log("✅ Order accepted and packed:", {
         orderId: order.id,
-        status: 'PACKED',
+        status: "PACKED",
         trackingId: confirmedShipment.courier.tracking_id,
     });
 

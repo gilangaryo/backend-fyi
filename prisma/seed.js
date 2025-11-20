@@ -42,18 +42,22 @@ async function main() {
     const collections = [
         {
             title: "Animal Spirit",
-            description: "Animal Spirit is the wild and rebellious heart of Island Couture - a celebration of strength, instinct, and untamed beauty.Each piece merges the raw allure of animal prints with therefined artistry of Lombok woven heritage, ",
-            subDescription: "creating an intriguing dialogue between tradition and wilderness. Brave yet graceful, this collection embodies freedom that lives within all of us.",
+            description:
+                "Animal Spirit is the wild and rebellious heart of Island Couture - a celebration of strength, instinct, and untamed beauty.Each piece merges the raw allure of animal prints with therefined artistry of Lombok woven heritage, ",
+            subDescription:
+                "creating an intriguing dialogue between tradition and wilderness. Brave yet graceful, this collection embodies freedom that lives within all of us.",
             quote: "Indonesian Ready Couture. We stage Indonesian creativity, craftmanship and elegance to the world.",
             heroImage: "/collection/dummy-collection-hero-1.png",
         },
         {
             title: "Couture Canvas",
-            description: "The Couture Canvas Collection is the first FYI Couture’s signature, when the brand starts in 2025 It explores simplicity as a translation of elegance: clean lines, refined tailoring, and versatile silhouettes creating a timeless wardrobe designed for every occasion. Just like a blank canvas, each piece invites everyone to express your individuality with quiet confidence and effortless grace.",
-            subDescription: "Just like a blank canvas, each piece invites everyone to express your individuality with quiet confidence and effortless grace",
+            description:
+                "The Couture Canvas Collection is the first FYI Couture’s signature, when the brand starts in 2025 It explores simplicity as a translation of elegance: clean lines, refined tailoring, and versatile silhouettes creating a timeless wardrobe designed for every occasion. Just like a blank canvas, each piece invites everyone to express your individuality with quiet confidence and effortless grace.",
+            subDescription:
+                "Just like a blank canvas, each piece invites everyone to express your individuality with quiet confidence and effortless grace",
             quote: "Indonesian Ready Couture. We stage Indonesian creativity, craftmanship and elegance to the world.",
             heroImage: "/collection/dummy-collection-hero-2.png",
-        }
+        },
     ];
 
     const collectionRecords = {};
@@ -125,14 +129,14 @@ async function main() {
     // ======================================================
     // 4️⃣ PRODUCTS
     // ======================================================
-    console.log("👗 Creating products...")
+    console.log("👗 Creating products...");
 
     const descriptions = {
         "Animal Spirit":
             "Animal print isn’t just a look — it’s a statement. A reminder that beneath the calm is a roar.",
         "Couture Canvas":
             "A bold collection inspired by the sweetness and mystery of temptation. Playful, vibrant, and daring.",
-    }
+    };
 
     const products = [
         {
@@ -171,12 +175,12 @@ async function main() {
                 "sumba-shibori-couture-canvas-capuchon-dress-back.jpg",
             ],
         },
-    ]
+    ];
 
-    const productRecords = {}
+    const productRecords = {};
 
     for (const p of products) {
-        const slug = slugify(p.title, { lower: true, strict: true })
+        const slug = slugify(p.title, { lower: true, strict: true });
 
         const product = await prisma.product.upsert({
             where: { slug },
@@ -199,9 +203,9 @@ async function main() {
                     "Soft as air, close as a whisper. This fabric clings like a lover, weightless, breathable, and made to move with you.",
                 delivery: "Free delivery",
             },
-        })
+        });
 
-        productRecords[p.title] = product.id
+        productRecords[p.title] = product.id;
 
         // Variants
         await prisma.productVariant.createMany({
@@ -232,21 +236,20 @@ async function main() {
                 },
             ],
             skipDuplicates: true,
-        })
+        });
 
         // Images (dinamis)
         const imageData = p.images.map((filename) => ({
             productId: product.id,
             imageUrl: `/uploads/product/${filename}`,
             isPrimary: filename.toLowerCase().includes("front"),
-        }))
+        }));
 
         await prisma.productImage.createMany({
             data: imageData,
             skipDuplicates: true,
-        })
+        });
     }
-
 
     // ======================================================
     // 5️⃣ SAMPLE ORDER + PAYMENT
@@ -322,27 +325,28 @@ async function main() {
 
             // ✅ SECOND SECTION
             secondHeaderImage: "/uploads/blog/blog-2.png",
-            secondHeading: "The collaboration celebrates the harmony between dance and design.",
+            secondHeading:
+                "The collaboration celebrates the harmony between dance and design.",
             secondDescription:
                 "Tanya’s graceful movement becomes the language that brings the pieces to life, while FYI translates that rhythm into fluid forms that flow naturally with every step and gesture.",
 
             // ✅ THIRD SECTION (BARU)
             thirdHeaderImage: "/uploads/blog/blog-1762413777311-622681306.jpg",
-            thirdHeading: "Soft textures, sheer layers, and earthy tones define this summer story.",
+            thirdHeading:
+                "Soft textures, sheer layers, and earthy tones define this summer story.",
             thirdDescription:
                 "Each piece moves effortlessly with the wind, carrying the warmth of the sun and the softness of the sea.",
-            thirdSubDescription: "It is fashion that breathes and follows your motion.",
+            thirdSubDescription:
+                "It is fashion that breathes and follows your motion.",
 
             // ✅ DIVIDER + QUOTE
             imageDivider: "/uploads/blog/blog-1762413770029-808058037.jpg",
-            quote:
-                "Through Tanya’s artistry, every garment becomes more than clothing.  It becomes an expression of freedom, presence, and feminine grace. FYI captures this spirit through craftsmanship that celebrates natural beauty and authenticity.",
+            quote: "Through Tanya’s artistry, every garment becomes more than clothing.  It becomes an expression of freedom, presence, and feminine grace. FYI captures this spirit through craftsmanship that celebrates natural beauty and authenticity.",
 
             // ✅ FOOTER IMAGES
             firstFooterImage: "/uploads/blog/blog-1762413773926-328733532.jpg",
             secondFooterImage: "/uploads/blog/blog-1762413775292-667414092.jpg",
-        }
-
+        },
     ];
 
     for (const blog of blogs) {
@@ -352,7 +356,6 @@ async function main() {
             create: blog,
         });
     }
-
 
     // ======================================================
     // 7️⃣ SETTINGS

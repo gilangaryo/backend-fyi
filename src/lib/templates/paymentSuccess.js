@@ -1,15 +1,15 @@
 export function paymentSuccessTemplate(order, payment) {
-  const format = (n) => Number(n).toLocaleString('id-ID')
-  console.log("email", order);
-  return `
+    const format = (n) => Number(n).toLocaleString("id-ID");
+    console.log("email", order);
+    return `
   <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto; color:#333;">
-    <div style="background:#000; color:#fff; padding:20px; text-align:center;">
+    <div style="background:#705A4F; color:#fff; padding:20px; text-align:center;">
       <h1 style="margin:0;">FYI Store</h1>
       <p style="margin:0; font-size:14px;">Payment Confirmation</p>
     </div>
 
     <div style="padding:20px;">
-      <h2>Hi ${order.user.name || 'Customer'},</h2>
+      <h2>Hi ${order.user.name || "Customer"},</h2>
       <p>Terima kasih sudah berbelanja di <strong>FYI Store</strong>.</p>
       <p>Pembayaran kamu sebesar <strong>Rp${format(payment.amount)}</strong> 
       untuk pesanan <strong>#${order.id}</strong> telah kami terima.</p>
@@ -25,18 +25,22 @@ export function paymentSuccessTemplate(order, payment) {
         </thead>
         <tbody>
           ${order.items
-      .map(
-        (item) => `
+              .map(
+                  (item) => `
             <tr>
-              <td style="padding:8px; border-bottom:1px solid #eee;">${item.product.title} - Size ${item.variant.size}</td>
-              <td style="padding:8px; border-bottom:1px solid #eee;" align="right">${item.quantity}</td>
+              <td style="padding:8px; border-bottom:1px solid #eee;">${
+                  item.product.title
+              } - Size ${item.variant.size}</td>
+              <td style="padding:8px; border-bottom:1px solid #eee;" align="right">${
+                  item.quantity
+              }</td>
               <td style="padding:8px; border-bottom:1px solid #eee;" align="right">Rp${format(
-          item.priceAtPurchase
-        )}</td>
+                  item.priceAtPurchase
+              )}</td>
             </tr>
           `
-      )
-      .join('')}
+              )
+              .join("")}
         </tbody>
       </table>
 
@@ -48,9 +52,9 @@ export function paymentSuccessTemplate(order, payment) {
       <p style="color:#888; font-size:12px;">FYI Store — Bali, Indonesia</p>
     </div>
 
-    <div style="background:#000; color:#fff; text-align:center; padding:10px;">
+    <div style="background:#705A4F; color:#fff; text-align:center; padding:10px;">
       <small>&copy; ${new Date().getFullYear()} FYI Store. All rights reserved.</small>
     </div>
   </div>
-  `
+  `;
 }

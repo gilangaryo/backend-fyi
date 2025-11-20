@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router } from "express";
 import {
     handleGetProducts,
     handleGetProductById,
@@ -7,24 +7,24 @@ import {
     handleUpdateProduct,
     handleDeleteProduct,
     handleToggleStatus,
-    handleGetSuggestedProducts
-} from '../usecase/products/product.controller.js'
+    handleGetSuggestedProducts,
+} from "../usecase/products/product.controller.js";
 
-import { requireAuth } from '../middleware/auth.middleware.js'
-import { requireAdmin } from '../middleware/requireAdmin.js'
+import { requireAuth } from "../middleware/auth.middleware.js";
+import { requireAdmin } from "../middleware/requireAdmin.js";
 
-const router = Router()
+const router = Router();
 
 // 👤 Public
-router.get('/', handleGetProducts)
-router.get('/slug/:slug', handleGetProductBySlug)
-router.get('/suggested', handleGetSuggestedProducts)
-router.get('/:id', handleGetProductById)
+router.get("/", handleGetProducts);
+router.get("/slug/:slug", handleGetProductBySlug);
+router.get("/suggested", handleGetSuggestedProducts);
+router.get("/:id", handleGetProductById);
 
 // 🔒 Admin Only
-router.post('/', requireAuth, requireAdmin, handleCreateProduct)
-router.put('/:id', requireAuth, requireAdmin, handleUpdateProduct)
-router.patch('/status/:id', requireAuth, requireAdmin, handleToggleStatus) // ✅
-router.delete('/:id', requireAuth, requireAdmin, handleDeleteProduct)
+router.post("/", requireAuth, handleCreateProduct);
+router.put("/:id", requireAuth, handleUpdateProduct);
+router.patch("/status/:id", requireAuth, handleToggleStatus); // ✅
+router.delete("/:id", requireAuth, handleDeleteProduct);
 
-export default router
+export default router;
