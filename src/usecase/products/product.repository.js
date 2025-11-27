@@ -1,4 +1,4 @@
-import prisma from '../../prisma/client.js';
+import prisma from "../../prisma/client.js";
 
 // ambil semua produk
 export async function findAllProducts(
@@ -6,36 +6,36 @@ export async function findAllProducts(
     search,
     skip = 0,
     limit = 12,
-    sortBy = 'createdAt',
-    sortOrder = 'desc'
+    sortBy = "createdAt",
+    sortOrder = "desc"
 ) {
     const whereClause = {
         ...(statusFilter !== undefined ? { status: statusFilter } : {}),
         ...(search
             ? {
-                OR: [
-                    { title: { contains: search } },
-                    { slug: { contains: search } },
-                    { description: { contains: search } },
-                ],
-            }
+                  OR: [
+                      { title: { contains: search } },
+                      { slug: { contains: search } },
+                      { description: { contains: search } },
+                  ],
+              }
             : {}),
-    }
+    };
 
     // ✅ Determine orderBy based on sortBy parameter
-    let orderBy = {}
+    let orderBy = {};
 
-    if (sortBy === 'stock') {
-        orderBy = { stock: sortOrder === 'desc' ? 'desc' : 'asc' }
-    } else if (sortBy === 'price') {
-        orderBy = { price: sortOrder === 'desc' ? 'desc' : 'asc' }
-    } else if (sortBy === 'title') {
-        orderBy = { title: sortOrder === 'desc' ? 'desc' : 'asc' }
-    } else if (sortBy === 'createdAt') {
-        orderBy = { createdAt: sortOrder === 'desc' ? 'desc' : 'asc' }
+    if (sortBy === "stock") {
+        orderBy = { stock: sortOrder === "desc" ? "desc" : "asc" };
+    } else if (sortBy === "price") {
+        orderBy = { price: sortOrder === "desc" ? "desc" : "asc" };
+    } else if (sortBy === "title") {
+        orderBy = { title: sortOrder === "desc" ? "desc" : "asc" };
+    } else if (sortBy === "createdAt") {
+        orderBy = { createdAt: sortOrder === "desc" ? "desc" : "asc" };
     } else {
         // Default: newest first
-        orderBy = { createdAt: 'desc' }
+        orderBy = { createdAt: "desc" };
     }
 
     const [total, products] = await prisma.$transaction([
@@ -53,19 +53,22 @@ export async function findAllProducts(
                 kain: true,
             },
         }),
-    ])
+    ]);
 
-    return { products, total }
+    return { products, total };
 }
 
 export async function findSuggestedProducts(statusFilter, limit) {
     const totalCount = await prisma.product.count({
         where: statusFilter !== undefined ? { status: statusFilter } : {},
-    })
+    });
 
-    if (totalCount === 0) return []
+    if (totalCount === 0) return [];
 
-    const randomOffset = Math.max(0, Math.floor(Math.random() * Math.max(totalCount - limit, 0)))
+    const randomOffset = Math.max(
+        0,
+        Math.floor(Math.random() * Math.max(totalCount - limit, 0))
+    );
 
     const products = await prisma.product.findMany({
         where: statusFilter !== undefined ? { status: statusFilter } : {},
@@ -74,7 +77,12 @@ export async function findSuggestedProducts(statusFilter, limit) {
         orderBy: { createdAt: "desc" },
         include: {
             images: {
-                select: { id: true, imageUrl: true, isPrimary: true },
+                select: {
+                    id: true,
+                    imageUrl: true,
+                    isPrimary: true,
+                    isSecondary: true,
+                }, // ✅ Added isSecondary
             },
             category: {
                 select: { id: true, title: true, slug: true },
@@ -83,7 +91,7 @@ export async function findSuggestedProducts(statusFilter, limit) {
                 select: { id: true, title: true, slug: true },
             },
         },
-    })
+    });
 
     if (products.length < limit && totalCount > limit) {
         const extra = await prisma.product.findMany({
@@ -92,7 +100,12 @@ export async function findSuggestedProducts(statusFilter, limit) {
             orderBy: { createdAt: "desc" },
             include: {
                 images: {
-                    select: { id: true, imageUrl: true, isPrimary: true },
+                    select: {
+                        id: true,
+                        imageUrl: true,
+                        isPrimary: true,
+                        isSecondary: true,
+                    }, // ✅ Added isSecondary
                 },
                 category: {
                     select: { id: true, title: true, slug: true },
@@ -101,11 +114,11 @@ export async function findSuggestedProducts(statusFilter, limit) {
                     select: { id: true, title: true, slug: true },
                 },
             },
-        })
-        return [...products, ...extra]
+        });
+        return [...products, ...extra];
     }
 
-    return products
+    return products;
 }
 
 // ambil produk by id
@@ -162,6 +175,7 @@ export async function updateProductData(id, data, relationalData = {}) {
                         productId: id,
                         imageUrl: img.imageUrl,
                         isPrimary: img.isPrimary || false,
+                        isSecondary: img.isSecondary || false, // ✅ Added isSecondary
                     })),
                 });
 
@@ -181,12 +195,16 @@ export async function updateProductData(id, data, relationalData = {}) {
                 select: { id: true },
             });
 
-            const existingIds = existingVariants.map(v => v.id);
-            const incomingIds = variants.filter(v => v.id).map(v => v.id);
+            const existingIds = existingVariants.map((v) => v.id);
+            const incomingIds = variants.filter((v) => v.id).map((v) => v.id);
 
-            const toDelete = existingIds.filter(id => !incomingIds.includes(id));
+            const toDelete = existingIds.filter(
+                (id) => !incomingIds.includes(id)
+            );
             if (toDelete.length > 0) {
-                await tx.productVariant.deleteMany({ where: { id: { in: toDelete } } });
+                await tx.productVariant.deleteMany({
+                    where: { id: { in: toDelete } },
+                });
             }
 
             for (const v of variants) {

@@ -94,10 +94,12 @@ model ProductVariant {
 }
 
 model ProductImage {
-  id        String   @id @default(uuid())
-  productId String
-  imageUrl  String
-  isPrimary Boolean  @default(false)
+  id          String  @id @default(uuid())
+  productId   String
+  imageUrl    String
+  isPrimary   Boolean @default(false)
+  isSecondary Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

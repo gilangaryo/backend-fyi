@@ -1,8 +1,60 @@
-import slugify from "slugify";
-import bcrypt from "bcrypt";
 import { PrismaClient } from "../src/generated/prisma/index.js";
+import bcrypt from "bcrypt";
+import slugify from "slugify";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const prisma = new PrismaClient();
+
+function createSlug(title) {
+    return slugify(title, { lower: true, strict: true });
+}
+
+// Helper untuk copy images dari folder source ke target
+async function copyProductImages(productId, productSlug) {
+    const sourceDir = path.join(
+        __dirname,
+        "../uploads/product/COUTURE CANVAS",
+        productId.toString()
+    );
+    const targetDir = path.join(__dirname, "../uploads/product", productSlug);
+
+    if (!fs.existsSync(sourceDir)) {
+        console.log(`  ⚠️  No images found for product ${productId}`);
+        return [];
+    }
+
+    // Create target directory
+    if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    // Get all image files and sort them
+    const files = fs
+        .readdirSync(sourceDir)
+        .filter((file) => /\.(jpg|jpeg|png|webp)$/i.test(file))
+        .sort();
+
+    const imagePaths = [];
+
+    files.forEach((file, index) => {
+        const sourcePath = path.join(sourceDir, file);
+        const ext = path.extname(file);
+        const targetFileName = `${index + 1}${ext}`;
+        const targetPath = path.join(targetDir, targetFileName);
+
+        fs.copyFileSync(sourcePath, targetPath);
+        const imageUrl = `/uploads/product/${productSlug}/${targetFileName}`;
+        imagePaths.push(imageUrl);
+        console.log(`    ✓ Copied: ${file} → ${targetFileName}`);
+    });
+
+    return imagePaths;
+}
 
 async function main() {
     console.log("🌱 Start seeding FYI Couture...");
@@ -35,332 +87,522 @@ async function main() {
         },
     });
 
-    // ======================================================
-    // 2️⃣ COLLECTIONS
-    // ======================================================
-    console.log("🪶 Creating collections...");
-    const collections = [
-        {
-            title: "Animal Spirit",
-            description:
-                "Animal Spirit is the wild and rebellious heart of Island Couture - a celebration of strength, instinct, and untamed beauty.Each piece merges the raw allure of animal prints with therefined artistry of Lombok woven heritage, ",
-            subDescription:
-                "creating an intriguing dialogue between tradition and wilderness. Brave yet graceful, this collection embodies freedom that lives within all of us.",
-            quote: "Indonesian Ready Couture. We stage Indonesian creativity, craftmanship and elegance to the world.",
-            heroImage: "/collection/dummy-collection-hero-1.png",
-        },
-        {
-            title: "Couture Canvas",
-            description:
-                "The Couture Canvas Collection is the first FYI Couture’s signature, when the brand starts in 2025 It explores simplicity as a translation of elegance: clean lines, refined tailoring, and versatile silhouettes creating a timeless wardrobe designed for every occasion. Just like a blank canvas, each piece invites everyone to express your individuality with quiet confidence and effortless grace.",
-            subDescription:
-                "Just like a blank canvas, each piece invites everyone to express your individuality with quiet confidence and effortless grace",
-            quote: "Indonesian Ready Couture. We stage Indonesian creativity, craftmanship and elegance to the world.",
-            heroImage: "/collection/dummy-collection-hero-2.png",
-        },
-    ];
-
-    const collectionRecords = {};
-    for (const col of collections) {
-        const record = await prisma.collection.upsert({
-            where: { slug: slugify(col.title, { lower: true, strict: true }) },
-            update: {},
-            create: {
-                title: col.title,
-                description: col.description,
-                subDescription: col.subDescription,
-                quote: col.quote,
-                heroImage: col.heroImage,
-                slug: slugify(col.title, { lower: true, strict: true }),
-                status: true,
-            },
-        });
-        collectionRecords[col.title] = record.id;
-    }
+    console.log("✓ Users created");
 
     // ======================================================
-    // 3.5️⃣ KAIN (FABRIC)
+    // 2️⃣ KAIN (FABRIC)
     // ======================================================
-    console.log("🧵 Creating kain...");
+    console.log("🧵 Creating kain/fabric types...");
 
-    const kainList = [
-        { name: "Shibori Cotton" },
-        { name: "Kain Bali" },
-        { name: "Sumba Fabric" },
-        { name: "Lombok Tenun" },
+    const kainData = [
+        { id: 1, name: "Sumba Couture Canvas" },
+        { id: 2, name: "Shibori Couture Canvas" },
+        { id: 3, name: "Kain Bali" },
+        { id: 4, name: "Lombok" },
     ];
 
     const kainRecords = {};
 
-    for (const k of kainList) {
-        const slug = slugify(k.name, { lower: true, strict: true });
-
+    for (const kain of kainData) {
+        const slug = createSlug(kain.name);
         const record = await prisma.kain.upsert({
             where: { slug },
             update: {},
             create: {
-                name: k.name,
-                slug,
+                name: kain.name,
+                slug: slug,
             },
         });
-
-        kainRecords[k.name] = record.id;
+        kainRecords[kain.id] = record.id;
+        console.log(`✓ Created kain: ${kain.name}`);
     }
 
     // ======================================================
     // 3️⃣ CATEGORIES
     // ======================================================
-    console.log("📦 Creating categories...");
-    const categories = ["Tops", "Bottom", "Dresses", "Accessories", "Outer"];
+    console.log("📂 Creating categories...");
 
-    const categoryRecords = {};
-    for (const cat of categories) {
-        const record = await prisma.category.upsert({
-            where: { slug: slugify(cat, { lower: true, strict: true }) },
-            update: {},
-            create: {
-                title: cat,
-                slug: slugify(cat, { lower: true, strict: true }),
-            },
-        });
-        categoryRecords[cat] = record.id;
-    }
-
-    // ======================================================
-    // 4️⃣ PRODUCTS
-    // ======================================================
-    console.log("👗 Creating products...");
-
-    const descriptions = {
-        "Animal Spirit":
-            "Animal print isn’t just a look — it’s a statement. A reminder that beneath the calm is a roar.",
-        "Couture Canvas":
-            "A bold collection inspired by the sweetness and mystery of temptation. Playful, vibrant, and daring.",
-    };
-
-    const products = [
-        {
-            title: "BOYFRIEND SHIRT – FORBIDDEN FRUIT PAMPLEMOUSSE SHIBORI",
-            category: "Tops",
-            collection: "Couture Canvas",
-            images: [
-                "boyfriend-shirt-forbidden-fruit-pamplemousse-shibori-front.jpg",
-                "boyfriend-shirt-forbidden-fruit-pamplemousse-shibori-back.jpg",
-            ],
-        },
-        {
-            title: "RESORT OUTER – LONG OUTER – ANIMAL SPIRIT",
-            category: "Outer",
-            collection: "Animal Spirit",
-            images: [
-                "resort-outer-long-outer-animal-spirit-front.jpg",
-                "resort-outer-long-outer-animal-spirit-side.jpg",
-            ],
-        },
-        {
-            title: "REVERSIBLE MADAME – FORBIDDEN FRUIT KAIN BALI",
-            category: "Outer",
-            collection: "Couture Canvas",
-            images: [
-                "reversible-madame-forbidden-fruit-kain-bali-front.jpg",
-                "reversible-madame-forbidden-fruit-kain-bali-back.png",
-            ],
-        },
-        {
-            title: "SUMBA SHIBORI COUTURE CANVAS – CAPUCHON DRESS",
-            category: "Dresses",
-            collection: "Animal Spirit",
-            images: [
-                "sumba-shibori-couture-canvas-capuchon-dress-front.jpg",
-                "sumba-shibori-couture-canvas-capuchon-dress-back.jpg",
-            ],
-        },
+    const categoriesData = [
+        { id: 1, title: "Long Skirt" },
+        { id: 2, title: "Short Skirt" },
+        { id: 3, title: "Mini Skirt" },
+        { id: 4, title: "Bustier" },
+        { id: 5, title: "Bralette" },
+        { id: 6, title: "Short" },
+        { id: 7, title: "Dress" },
+        { id: 8, title: "Pants" },
+        { id: 9, title: "Long Sleeve Sh" },
+        { id: 10, title: "Reversible Madame" },
+        { id: 11, title: "Boyfriend Shirt" },
+        { id: 12, title: "Summer Suit" },
+        { id: 13, title: "Mini Dress" },
+        { id: 14, title: "Dress Tier Skirt" },
+        { id: 15, title: "Bra" },
+        { id: 16, title: "Big Skirt" },
+        { id: 17, title: "Wrap Skirt" },
+        { id: 18, title: "Long Jumpsuit" },
+        { id: 19, title: "Outer" },
+        { id: 20, title: "Girlfriend Shirt" },
+        { id: 21, title: "Top" },
+        { id: 22, title: "Tube Bralette" },
+        { id: 23, title: "Bustier Boneless" },
+        { id: 24, title: "Short Jumpsuit" },
+        { id: 25, title: "Reversible Monsieur" },
+        { id: 26, title: "Long Flare Skirt" },
+        { id: 27, title: "Long Slip Dress" },
+        { id: 28, title: "Mermaid Skirt" },
     ];
 
-    const productRecords = {};
+    const categoryRecords = {};
 
-    for (const p of products) {
-        const slug = slugify(p.title, { lower: true, strict: true });
-
-        const product = await prisma.product.upsert({
+    for (const category of categoriesData) {
+        const slug = createSlug(category.title);
+        const record = await prisma.category.upsert({
             where: { slug },
             update: {},
             create: {
-                title: p.title,
-                slug,
-                price: 1000000,
-                description: descriptions[p.collection],
-                stock: 20,
-                imageUrl: `/uploads/product/${p.images.find((i) =>
-                    i.includes("front")
-                )}`, // default preview pakai front
-                categoryId: categoryRecords[p.category],
-                collectionId: collectionRecords[p.collection],
-
-                kainId: kainRecords["Shibori Cotton"],
-
-                details:
-                    "Soft as air, close as a whisper. This fabric clings like a lover, weightless, breathable, and made to move with you.",
-                delivery: "Free delivery",
+                title: category.title,
+                slug: slug,
             },
         });
-
-        productRecords[p.title] = product.id;
-
-        // Variants
-        await prisma.productVariant.createMany({
-            data: [
-                {
-                    productId: product.id,
-                    size: "S",
-                    color: "Black",
-                    stock: 5,
-                    sku: `${slug}-S-BLK`,
-                    bust: "84 cm",
-                    waist: "68 cm",
-                    length: "110 cm",
-                    sleeve: "56 cm",
-                    height: "160–165 cm",
-                },
-                {
-                    productId: product.id,
-                    size: "M",
-                    color: "Black",
-                    stock: 5,
-                    sku: `${slug}-M-BLK`,
-                    bust: "88 cm",
-                    waist: "72 cm",
-                    length: "112 cm",
-                    sleeve: "57 cm",
-                    height: "165–170 cm",
-                },
-            ],
-            skipDuplicates: true,
-        });
-
-        // Images (dinamis)
-        const imageData = p.images.map((filename) => ({
-            productId: product.id,
-            imageUrl: `/uploads/product/${filename}`,
-            isPrimary: filename.toLowerCase().includes("front"),
-        }));
-
-        await prisma.productImage.createMany({
-            data: imageData,
-            skipDuplicates: true,
-        });
+        categoryRecords[category.id] = record.id;
+        console.log(`✓ Created category: ${category.title}`);
     }
 
     // ======================================================
-    // 5️⃣ SAMPLE ORDER + PAYMENT
+    // 4️⃣ COLLECTIONS
     // ======================================================
-    console.log("💸 Creating sample order & payment...");
+    console.log("🎨 Creating collections...");
 
-    const subTotal = 3000000;
-    const shippingCost = 50000;
-    const total = subTotal + shippingCost;
-
-    const order = await prisma.order.create({
-        data: {
-            userId: user.id,
-            status: "NEW",
-            subTotal,
-            shippingCost,
-            total,
-            courierCompany: "JNE",
-            items: {
-                create: [
-                    {
-                        productId: Object.values(productRecords)[0],
-                        quantity: 1,
-                        priceAtPurchase: 1000000,
-                    },
-                    {
-                        productId: Object.values(productRecords)[1],
-                        quantity: 2,
-                        priceAtPurchase: 1000000,
-                    },
-                ],
-            },
-            payments: {
-                create: {
-                    referenceId: "PAY-001",
-                    paymentRequestId: "REQ-001",
-                    amount: total,
-                    status: "PAID",
-                    userId: user.id,
-                },
-            },
-        },
-        include: { items: true, payments: true },
-    });
-
-    await prisma.orderStatusLog.create({
-        data: { orderId: order.id, status: "NEW" },
-    });
-
-    // ======================================================
-    // 6️⃣ BLOGS
-    // ======================================================
-    console.log("📰 Creating blogs...");
-
-    const blogs = [
+    const collectionsData = [
         {
-            event: "FYI x Kendra Art Space ",
-            title: "The Journey of Becoming",
+            id: 1,
+            title: "Couture Canvas",
             description:
-                "Through collaborations with artists, performers, and visionaries, FYI celebrates individuality and creative expression. From editorial photo series and visual installations to intimate showcases and performing arts collaborations, we bring together diverse talents to shape experiences that inspire and move.",
-            slug: slugify("FYI x Kendra Art Space The Journey of Becoming", {
-                lower: true,
-                strict: true,
-            }),
-
-            heroImage: "/uploads/blog/hero-image.jpg",
-
-            // ✅ FIRST SECTION
-            firstHeaderImage: "/uploads/blog/blog-1.png",
-            firstHeading: "In summer 2025 instead of this summer",
-            firstDescription:
-                "FYI collaborates with Tanya Bourgeois Cayer, a dancer from Canada who now calls Bali her creative home. The collection is born from movement, rhythm, and the quiet confidence that comes from being one with your body and the island air.",
-
-            // ✅ SECOND SECTION
-            secondHeaderImage: "/uploads/blog/blog-2.png",
-            secondHeading:
-                "The collaboration celebrates the harmony between dance and design.",
-            secondDescription:
-                "Tanya’s graceful movement becomes the language that brings the pieces to life, while FYI translates that rhythm into fluid forms that flow naturally with every step and gesture.",
-
-            // ✅ THIRD SECTION (BARU)
-            thirdHeaderImage: "/uploads/blog/blog-1762413777311-622681306.jpg",
-            thirdHeading:
-                "Soft textures, sheer layers, and earthy tones define this summer story.",
-            thirdDescription:
-                "Each piece moves effortlessly with the wind, carrying the warmth of the sun and the softness of the sea.",
-            thirdSubDescription:
-                "It is fashion that breathes and follows your motion.",
-
-            // ✅ DIVIDER + QUOTE
-            imageDivider: "/uploads/blog/blog-1762413770029-808058037.jpg",
-            quote: "Through Tanya’s artistry, every garment becomes more than clothing.  It becomes an expression of freedom, presence, and feminine grace. FYI captures this spirit through craftsmanship that celebrates natural beauty and authenticity.",
-
-            // ✅ FOOTER IMAGES
-            firstFooterImage: "/uploads/blog/blog-1762413773926-328733532.jpg",
-            secondFooterImage: "/uploads/blog/blog-1762413775292-667414092.jpg",
+                "The Couture Canvas Collection is the first FYI Couture's signature, when the brand starts in 2025 It explores simplicity as a translation of elegance: clean lines, refined tailoring, and versatile silhouettes creating a timeless wardrobe designed for every occasion.",
+            subDescription:
+                "Just like a blank canvas, each piece invites everyone to express your individuality with quiet confidence and effortless grace.",
+        },
+        {
+            id: 2,
+            title: "Island Couture Forbidden Fruit",
+            description:
+                "Forbidden Fruit is the bright and daring spirit of Island Couture, reimagined with the soul of Bali. Each piece blends bold, sensuous design with the artistry of traditional Kain Bali — a fabric rich in culture, symbolism, and timeless beauty.",
+            subDescription:
+                "The result is a collection that tempts with creativity and innovation, while honoring the heritage of Bali a tradition rich and artistic island.",
+        },
+        {
+            id: 3,
+            title: "Island Couture Animal Spirit",
+            description:
+                "Animal Spirit is the wild and rebellious heart of Island Couture - a celebration of strength, instinct, and untamed beauty. Each piece merges the raw allure of animal prints with the refined artistry of Lombok woven heritage, creating an intriguing dialogue between tradition and wilderness.",
+            subDescription:
+                "Brave yet graceful, this collection embodies freedom that lives within all of us.",
         },
     ];
 
-    for (const blog of blogs) {
-        await prisma.blog.upsert({
-            where: { slug: blog.slug },
+    const collectionRecords = {};
+
+    for (const collection of collectionsData) {
+        const slug = createSlug(collection.title);
+        const record = await prisma.collection.upsert({
+            where: { slug },
             update: {},
-            create: blog,
+            create: {
+                title: collection.title,
+                slug: slug,
+                description: collection.description,
+                subDescription: collection.subDescription,
+                quote: "Indonesian Ready Couture. We stage Indonesian creativity, craftmanship and elegance to the world.",
+                heroImage: null,
+                status: true,
+                position: collection.id,
+            },
         });
+        collectionRecords[collection.id] = record.id;
+        console.log(`✓ Created collection: ${collection.title}`);
     }
 
     // ======================================================
-    // 7️⃣ SETTINGS
+    // 5️⃣ PRODUCTS
     // ======================================================
-    console.log("⚙️ Creating default settings...");
+    console.log("🛍️ Creating products...");
+
+   const productsData = [
+       // COUTURE CANVAS (1-11)
+       {
+           id: 1,
+           title: "FLIRT BRA - BRALETTE - FORBIDDEN FRUIT",
+           price: 499000,
+           categoryId: 5,
+           collectionId: 1,
+           kainId: null,
+       },
+       {
+           id: 2,
+           title: "SUMBA COUTURE CANVAS - MINI SKIRT",
+           price: 1599000,
+           categoryId: 3,
+           collectionId: 1,
+           kainId: 1,
+       },
+       {
+           id: 3,
+           title: "SUMBA COUTURE CANVAS - LONG SKIRT",
+           price: 1999000,
+           categoryId: 1,
+           collectionId: 1,
+           kainId: 1,
+       },
+       {
+           id: 4,
+           title: "SHIBORI COUTURE CANVAS - LACE AND SHIBORI BUSTIER PURPLE",
+           price: 1999000,
+           categoryId: 4,
+           collectionId: 1,
+           kainId: 2,
+       },
+       {
+           id: 5,
+           title: "SUMBA COUTURE CANVAS - LONG SKIRT",
+           price: 1999000,
+           categoryId: 1,
+           collectionId: 1,
+           kainId: 1,
+       },
+       {
+           id: 6,
+           title: "SHIBORI COUTURE CANVAS - LACE AND SHIBORI BUSTIER ORANGE",
+           price: 1999000,
+           categoryId: 4,
+           collectionId: 1,
+           kainId: 2,
+       },
+       {
+           id: 7,
+           title: "SHIBORI COUTURE CANVAS - BONE TUBE DRESS",
+           price: 2500000,
+           categoryId: 7,
+           collectionId: 1,
+           kainId: 2,
+       },
+       {
+           id: 8,
+           title: "SHIBORI COUTURE CANVAS - CULOTTE PANTS",
+           price: 1999000,
+           categoryId: 8,
+           collectionId: 1,
+           kainId: 2,
+       },
+       {
+           id: 9,
+           title: "SHIBORI COUTURE CANVAS - SHORT PANTS",
+           price: 1499000,
+           categoryId: 8,
+           collectionId: 1,
+           kainId: 2,
+       },
+       {
+           id: 10,
+           title: "WHITE COUTURE CANVAS - SHIRT DRESS",
+           price: 1999000,
+           categoryId: 7,
+           collectionId: 1,
+           kainId: 1,
+       },
+       {
+           id: 11,
+           title: "SUMBA SHIBORI COUTURE CANVAS - CAPUCHON DRESS",
+           price: 3699000,
+           categoryId: 7,
+           collectionId: 1,
+           kainId: 2,
+       },
+
+       // FORBIDDEN FRUIT (12-22, skip 15, 20, 21)
+       {
+           id: 12,
+           title: "REVERSIBLE MADAME - FORBIDDEN FRUIT - KAIN BALI GREEN",
+           price: 3500000,
+           categoryId: 10,
+           collectionId: 2,
+           kainId: 3,
+       },
+       {
+           id: 13,
+           title: "REVERSIBLE MADAME - FORBIDDEN FRUIT - KAIN BALI WHITE",
+           price: 3500000,
+           categoryId: 10,
+           collectionId: 2,
+           kainId: 3,
+       },
+       {
+           id: 14,
+           title: "BOYFRIEND SHIRT - FORBIDDEN FRUIT PAMPLEMOUSSE SHIBORI",
+           price: 1699000,
+           categoryId: 11,
+           collectionId: 2,
+           kainId: 2,
+       },
+       // SKIP 15 - NO PHOTO
+       {
+           id: 16,
+           title: "COCKTAIL DRESS - TUBE MINI DRESS - FORBIDDEN FRUIT - LOMBOK",
+           price: 2500000,
+           categoryId: 7,
+           collectionId: 2,
+           kainId: 4,
+       },
+       {
+           id: 17,
+           title: "CAKE DRESS - DRESS TIER SKIRT - FORBIDDEN FRUIT - KAIN BALI",
+           price: 2500000,
+           categoryId: 7,
+           collectionId: 2,
+           kainId: 3,
+       },
+       {
+           id: 19,
+           title: "FORBIDDEN FRUIT - BIG SKIRT",
+           price: 2500000,
+           categoryId: 16,
+           collectionId: 2,
+           kainId: 2,
+       },
+       // SKIP 20 - NO PHOTO
+       // SKIP 21 - NO PHOTO
+       {
+           id: 22,
+           title: "CANDY SHORT - FORBIDDEN FRUIT",
+           price: 499000,
+           categoryId: 6,
+           collectionId: 2,
+           kainId: 2,
+       },
+
+       // ANIMAL SPIRIT (23-43, skip 40)
+       {
+           id: 23,
+           title: "TWIRL DRESS - MINI V DRESS - ANIMAL SPIRIT",
+           price: 1499000,
+           categoryId: 13,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 24,
+           title: "FLIRTY HIP - LONG JUMPSUIT - ANIMAL SPIRIT",
+           price: 2499000,
+           categoryId: 18,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 25,
+           title: "REVERSIBLE MADAME - ANIMAL SPIRIT",
+           price: 3500000,
+           categoryId: 10,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 26,
+           title: "RESORT OUTER - LONG OUTER - ANIMAL SPIRIT",
+           price: 3500000,
+           categoryId: 19,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 27,
+           title: "GIRLFRIEND SHIRT - CHEONGSAM TOP ANIMAL SPIRIT",
+           price: 1099000,
+           categoryId: 20,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 28,
+           title: "MAXY CANDY - LONG FLARE SKIRT - ANIMAL SPIRIT",
+           price: 2999000,
+           categoryId: 26,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 29,
+           title: "BANDEO - TUBE BRALETTE - FORBIDDEN FRUIT - KAIN BALI",
+           price: 499000,
+           categoryId: 22, // ← Fix: ganti dari 12 ke 22 (Tube Bralette)
+           collectionId: 2,
+           kainId: 3,
+       },
+       {
+           id: 30,
+           title: "PICK POCKET SHORT - LOMBOK",
+           price: 999000,
+           categoryId: 6,
+           collectionId: 3,
+           kainId: 4,
+       },
+       {
+           id: 31,
+           title: "SUMMER SUIT - ANIMAL SPIRIT",
+           price: 1999000,
+           categoryId: 12,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 32,
+           title: "BANDEO - TUBE BRALETTE - ANIMAL SPIRIT",
+           price: 499000,
+           categoryId: 22,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 33,
+           title: "CANDY SHORT - SHORT WITH RUFFLE - ANIMAL SPIRIT",
+           price: 499000,
+           categoryId: 6,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 34,
+           title: "FLIRT BRA - BRALETTE ANIMAL SPIRIT",
+           price: 499000,
+           categoryId: 15,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 35,
+           title: "CANDY SHORT - ANIMAL SPIRIT",
+           price: 499000,
+           categoryId: 6,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 36,
+           title: "CAKE DRESS - DRESS TIER SKIRT - ANIMAL SPIRIT",
+           price: 2500000,
+           categoryId: 7,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 37,
+           title: "FLIRT DRESS - LONG SLIP DRESS - ANIMAL SPIRIT",
+           price: 1999000,
+           categoryId: 27,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 38,
+           title: "FLIRT SKIRT - MERMAID SKIRT - ANIMAL SPIRIT",
+           price: 1999000,
+           categoryId: 28, // ← Fix: ganti dari 27 ke 28 (Mermaid Skirt)
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 39,
+           title: "GIRLFRIEND SHIRT - CHEONGSAM TOP - ANIMAL SPIRIT - RED",
+           price: 1099000,
+           categoryId: 21,
+           collectionId: 3,
+           kainId: 3,
+       },
+       // SKIP 40 - NO PHOTO (duplicate title dengan 38)
+       {
+           id: 41,
+           title: "REVERSIBLE MADAME - OUTER - ANIMAL SPIRIT",
+           price: 3500000,
+           categoryId: 10,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 42,
+           title: "PICK POCKET SHORT - ANIMAL SPIRIT",
+           price: 999000,
+           categoryId: 6,
+           collectionId: 3,
+           kainId: 3,
+       },
+       {
+           id: 43,
+           title: "WCAMI - BUSTIER BONELESS - ANIMAL SPIRIT",
+           price: 1999000,
+           categoryId: 23,
+           collectionId: 3,
+           kainId: 3,
+       },
+   ];
+
+    const productRecords = {};
+
+    for (const product of productsData) {
+        const slug = createSlug(product.title);
+        const sku = `FYI-${product.id.toString().padStart(3, "0")}`;
+
+        console.log(`\n📦 Processing: ${product.title}`);
+
+        // Copy images
+        const imagePaths = await copyProductImages(product.id, slug);
+        const mainImage = imagePaths.length > 0 ? imagePaths[0] : null;
+
+        const record = await prisma.product.upsert({
+            where: { slug },
+            update: {},
+            create: {
+                title: product.title,
+                slug: slug,
+                description: null,
+                price: product.price,
+                stock: 0,
+                sku: sku,
+                imageUrl: mainImage,
+                details: null,
+                delivery: null,
+                status: true,
+                categoryId: product.categoryId
+                    ? categoryRecords[product.categoryId]
+                    : null,
+                collectionId: product.collectionId
+                    ? collectionRecords[product.collectionId]
+                    : null,
+                kainId: product.kainId ? kainRecords[product.kainId] : null,
+            },
+        });
+
+        // Create ProductImages for all images
+        if (imagePaths.length > 0) {
+            for (let i = 0; i < imagePaths.length; i++) {
+                await prisma.productImage.create({
+                    data: {
+                        productId: record.id,
+                        imageUrl: imagePaths[i],
+                        isPrimary: i === 0,
+                    },
+                });
+                console.log(`    ✓ Added to DB: ${imagePaths[i]}`);
+            }
+        }
+
+        productRecords[product.id] = record.id;
+        console.log(`  ✓ Created product: ${product.title}`);
+    }
+
+    // ======================================================
+    // 6️⃣ SETTINGS
+    // ======================================================
+    console.log("\n⚙️ Creating default settings...");
+
     await prisma.setting.upsert({
         where: { key: "announcement" },
         update: { value: "Free shipping all over Indonesia", isActive: true },
@@ -382,7 +624,19 @@ async function main() {
         update: {},
         create: { key: "default_courier", value: "sicepat" },
     });
-    console.log("✅ Seeding completed successfully!");
+
+    console.log("✓ Settings created");
+
+    console.log("\n✅ Seeding completed successfully!");
+    console.log(`
+📊 Summary:
+- Users: ${Object.keys({ admin, user }).length}
+- Kain: ${Object.keys(kainRecords).length}
+- Categories: ${Object.keys(categoryRecords).length}
+- Collections: ${Object.keys(collectionRecords).length}
+- Products: ${Object.keys(productRecords).length}
+- Settings: 3
+    `);
 }
 
 // ======================================================
