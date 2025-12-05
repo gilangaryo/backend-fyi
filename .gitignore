@@ -5,3 +5,5 @@ node_modules
 /src/generated/prisma
 /dont
 /uploads/product/COUTURE_CANVAS
+/uploads/product
+/prisma/inject-2
