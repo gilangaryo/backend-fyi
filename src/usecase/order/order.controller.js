@@ -25,13 +25,11 @@ export const getOrderById = async (req, res) => {
                 .status(404)
                 .json({ success: false, message: "Order not found" });
         }
-        return res
-            .status(200)
-            .json({
-                success: true,
-                message: "Order fetched successfully",
-                data: order,
-            });
+        return res.status(200).json({
+            success: true,
+            message: "Order fetched successfully",
+            data: order,
+        });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
