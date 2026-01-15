@@ -132,18 +132,18 @@ export const createOrder = async (payload) => {
 
     // Buat draft order ke Biteship (pengiriman)
     const biteshipPayload = {
-        origin_contact_name: "FYI Store",
+        origin_contact_name: "FYI Couture Store || Fiona Yao",
         origin_contact_phone: "082391231082",
         origin_address:
             "Jl. Tanah Barak No.15, Canggu, Kec. Kuta Utara, Kabupaten Badung, Bali 80351",
-        origin_note: "FYI Couture",
+        origin_note: "FYI Couture Store",
         origin_postal_code: 80351,
         destination_contact_name: name,
         destination_contact_phone: phone,
         destination_contact_email: email,
         destination_address: address.address,
         destination_postal_code: address.postalCode,
-        destination_note: "Auto from system",
+        destination_note: "",
         courier_company: defaultCourier,
         courier_type: courierType,
         // delivery_type: "scheduled",
@@ -175,7 +175,6 @@ export const createOrder = async (payload) => {
     });
 
     const shipData = await shipRes.json();
-    // console.log("shipdataaaaa ", shipData);
     if (!shipRes.ok)
         throw new Error(shipData.message || "Gagal buat draft pengiriman");
 
@@ -385,6 +384,7 @@ const confirmBiteshipOrder = async (draftOrderId) => {
                     "Failed to confirm Biteship order"
             );
         }
+        console.log(confirmData);
 
         return confirmData;
     } catch (error) {
