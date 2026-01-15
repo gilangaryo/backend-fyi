@@ -1,44 +1,26 @@
 import * as PaymentRepository from "./payment.repository.js";
 import prisma from "../../prisma/client.js";
 
+export const getPaymentSession = async (referenceId) => {
+    if (!referenceId) throw new Error("referenceId is required");
 
-export const getPaymentSession = async (order_id) => {
-    if (!order_id) throw new Error("order_id is required");
-    console.log("🟢 Fetching payment for order:", order_id);
+    console.log("🟢 Fetching payment for reference:", referenceId);
 
-    const orderData = await prisma.order.findUnique({
-        where: { id: order_id },
-        select: { id: true, xenditPaymentId: true, status: true },
-    });
-
-    if (!orderData?.xenditPaymentId) {
-        throw new Error("No Xendit session found for this order");
-    }
-
-    const session_id = orderData.xenditPaymentId;
-
-    const session = await PaymentRepository.fetchXenditSession(session_id);
-    if (!session) throw new Error("Payment session not found");
-    console.log("session", session);
-
-    let payment = null;
-    if (session.payment_id) {
-        payment = await PaymentRepository.fetchXenditPayment(session.payment_id);
-    }
-
-    const order = await prisma.order.findFirst({
-        where: { referenceId: session.reference_id },
+    const payment = await prisma.payment.findUnique({
+        where: { referenceId },
         include: {
-            user: { select: { name: true, email: true, phone: true } },
-            items: {
+            order: {
                 include: {
-                    product: {
-                        select: {
-                            id: true,
-                            title: true,
-                            imageUrl: true,
-                            price: true,
-                            category: { select: { title: true } },
+                    user: { select: { name: true, email: true, phone: true } },
+                    items: {
+                        include: {
+                            product: {
+                                select: {
+                                    title: true,
+                                    imageUrl: true,
+                                    price: true,
+                                },
+                            },
                         },
                     },
                 },
@@ -46,36 +28,39 @@ export const getPaymentSession = async (order_id) => {
         },
     });
 
-    // if (payment?.status === "SUCCEEDED" && order?.status !== "PAID") {
-    //     await prisma.order.update({
-    //         where: { id: order.id },
-    //         data: { status: "NEW" },
-    //     });
-    // }
+    if (!payment) {
+        throw new Error("Payment not found");
+    }
 
-    return {
-        session: {
-            id: session.payment_session_id,
-            status: session.status,
-            amount: session.amount,
-            payment_id: session.payment_id,
-            success_return_url: session.success_return_url,
-            created: session.created,
-            updated: session.updated,
-        },
-        payment: payment
-            ? {
-                id: payment.payment_id,
+    // ================= MIDTRANS =================
+    if (payment.provider === "MIDTRANS") {
+        return {
+            provider: "midtrans",
+            payment: {
+                referenceId: payment.referenceId,
                 status: payment.status,
-                method: payment.payment_method || payment.type,
-                channel: payment.channel_code,
-                paid_at:
-                    payment.captures?.[0]?.capture_timestamp ||
-                    payment.updated ||
-                    null,
-                captures: payment.captures || [],
-            }
-            : null,
-        order,
-    };
+                paymentUrl: payment.paymentLinkUrl,
+            },
+            order: payment.order,
+        };
+    }
+
+    // ================= XENDIT =================
+    if (payment.provider === "XENDIT") {
+        const session = await fetchXenditSession(payment.paymentRequestId);
+
+        let paymentDetail = null;
+        if (session.payment_id) {
+            paymentDetail = await fetchXenditPayment(session.payment_id);
+        }
+
+        return {
+            provider: "xendit",
+            session,
+            payment: paymentDetail,
+            order: payment.order,
+        };
+    }
+
+    throw new Error("Unsupported payment provider");
 };

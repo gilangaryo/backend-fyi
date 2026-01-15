@@ -1,0 +1,74 @@
+import fetch from "node-fetch";
+import { v4 as uuid } from "uuid";
+
+export async function createXenditPayment({
+    order,
+    basket,
+    user,
+    amount,
+    discount,
+    shippingCost,
+}) {
+    const paymentRef = `order_${order.id}`;
+
+    const items = basket.map((b) => ({
+        type: "PHYSICAL_PRODUCT",
+        reference_id: b.variantId,
+        name: b.product.title,
+        net_unit_amount: Number(b.product.price),
+        quantity: b.quantity,
+    }));
+
+    if (discount?.amount > 0) {
+        items.push({
+            type: "FEE",
+            reference_id: `discount_${discount.code}`,
+            name: `Discount ${discount.code}`,
+            net_unit_amount: -discount.amount,
+            quantity: 1,
+        });
+    }
+
+    const payload = {
+        reference_id: paymentRef,
+        session_type: "PAY",
+        mode: "PAYMENT_LINK",
+        amount,
+        currency: "IDR",
+        country: "ID",
+        items,
+        customer: {
+            reference_id: uuid(),
+            type: "INDIVIDUAL",
+            email: user.email,
+            mobile_number: user.phone,
+            individual_detail: { given_names: user.name },
+        },
+        success_return_url: `${process.env.FRONTEND_URL}/success?order_id=${order.id}`,
+        cancel_return_url: `${process.env.FRONTEND_URL}/cancel`,
+    };
+
+    const res = await fetch("https://api.xendit.co/sessions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization:
+                "Basic " +
+                Buffer.from(process.env.XENDIT_SECRET_KEY + ":").toString(
+                    "base64"
+                ),
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message);
+
+    return {
+        provider: "xendit",
+        referenceId: paymentRef,
+        paymentId: data.payment_session_id,
+        paymentUrl: data.payment_link_url,
+        expiredAt: data.expires_at,
+    };
+}

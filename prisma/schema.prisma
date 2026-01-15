@@ -31,6 +31,11 @@ enum Role {
   EMPLOYEE
 }
 
+enum PaymentProvider {
+  MIDTRANS
+  XENDIT
+}
+
 /// Product
 model Product {
   id          String  @id @default(uuid())
@@ -154,19 +159,20 @@ model Collection {
 
 /// Payment
 model Payment {
-  id               String        @id @default(uuid())
+  id               String           @id @default(uuid())
   userId           String
   orderId          String
-  referenceId      String        @unique
-  paymentRequestId String        @unique
+  provider         PaymentProvider?
+  referenceId      String           @unique
+  paymentRequestId String           @unique
   paymentLinkUrl   String?
-  amount           Decimal       @db.Decimal(18, 2)
-  status           PaymentStatus @default(PENDING)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  amount           Decimal          @db.Decimal(18, 2)
+  status           PaymentStatus    @default(PENDING)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   expiredAt        DateTime?
-  user             User          @relation(fields: [userId], references: [id])
-  order            Order         @relation(fields: [orderId], references: [id])
+  user             User             @relation(fields: [userId], references: [id])
+  order            Order            @relation(fields: [orderId], references: [id])
   refunds          Refund[]
 
   @@index([userId])

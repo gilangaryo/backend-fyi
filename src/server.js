@@ -82,13 +82,12 @@ app.use(
 // ⚡ Rate Limiting (API only, not webhook)
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 300,
+    max: 1000,
     message: {
         status: "error",
         message: "Too many requests",
     },
 });
-app.use("/api/", apiLimiter);
 
 // 📝 Parsers
 app.use(express.json());
@@ -98,16 +97,34 @@ app.use(cookieParser());
 app.use(sessionMiddleware);
 
 // 📂 Static files (uploads)
+app.use("/api/uploads", (req, res, next) => {
+    res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
+    next();
+});
 app.use(
     "/api/uploads/blog",
     express.static(path.join(process.cwd(), "uploads", "blog"))
 );
-app.use("/api/upload/blog", requireAuth, requireAdmin, uploadBlogRoutes);
-app.use("/api/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 app.use(
     "/api/uploads/collection",
     express.static(path.join(process.cwd(), "uploads", "collection"))
 );
+
+app.use("/api/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+app.use((req, res, next) => {
+    if (
+        req.path.startsWith("/api/uploads") ||
+        req.path.startsWith("/api/payment/webhook") ||
+        req.path.startsWith("/api/biteship/webhook")
+    ) {
+        return next(); // BYPASS
+    }
+    apiLimiter(req, res, next);
+});
+
+app.use("/api/upload/blog", requireAuth, requireAdmin, uploadBlogRoutes);
 app.use("/api/upload", requireAuth, requireAdmin, uploadRoutes);
 
 // ⚡ Webhook (raw body)

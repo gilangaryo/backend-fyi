@@ -6,6 +6,8 @@ import bcrypt from "bcryptjs";
 import getDefaultCourierType from "../../lib/courier.js";
 import { sendEmail } from "../../lib/mailer.js";
 import { acceptOrderTrackingTemplate } from "../../lib/templates/acceptOrder.js";
+import { createPayment } from "./payment/index.js";
+
 export const createOrder = async (payload) => {
     const {
         email,
@@ -243,130 +245,48 @@ export const createOrder = async (payload) => {
         });
         console.log("✅ Discount usage count incremented");
     }
+    const grossAmountForPayment = total - discountAmount;
 
-    // Buat payment link Xendit
-    const paymentRef = `order_${order.id}`;
-
-    // ✅ Items HANYA produk saja
-    const xenditItems = basket.map((b) => {
-        const sizeLabel = b.size ? ` — Size ${b.size}` : "";
-        return {
-            type: "PHYSICAL_PRODUCT",
-            reference_id: b.variantId || b.product.id,
-            category: "fashion",
-            name: `${b.product.title}${sizeLabel}`,
-            net_unit_amount: Number(b.product.price),
-            quantity: Number(b.quantity),
-            image_url: b.product.imageUrl || undefined,
-            description: `${b.product.title}${sizeLabel}`,
-            metadata: {
-                product_id: b.product.id,
-                variant_id: b.variantId,
-                size: b.size,
-                order_id: order.id,
-            },
-        };
+    // ================= PAYMENT =================
+    const payment = await createPayment({
+        provider: process.env.PAYMENT_PROVIDER, // xendit | midtrans
+        order,
+        basket,
+        user,
+        amount: grossAmountForPayment,
+        discount:
+            discountAmount > 0
+                ? { code: discount.code, amount: discountAmount }
+                : null,
+        shippingCost,
     });
 
-    if (discountAmount > 0 && discount) {
-        xenditItems.push({
-            type: "FEE",
-            reference_id: `discount_${discount.id}`,
-            category: "fees",
-            name: `Discount - ${discount.code}`,
-            net_unit_amount: -discountAmount,
-            quantity: 1,
-            description: `${
-                discount.type === "PERCENT"
-                    ? `${discount.value}% OFF`
-                    : `IDR ${Number(discount.value).toLocaleString(
-                          "id-ID"
-                      )} OFF`
-            }`,
-            metadata: {
-                discount_id: discount.id,
-                discount_code: discount.code,
-                discount_type: discount.type,
-            },
-        });
-    }
-
-    const paymentPayload = {
-        reference_id: paymentRef,
-        session_type: "PAY",
-        mode: "PAYMENT_LINK",
-        amount: Number(grandTotal),
-        currency: "IDR",
-        country: "ID",
-        items: xenditItems,
-        customer: {
-            reference_id: uuid(),
-            type: "INDIVIDUAL",
-            email,
-            mobile_number: phone,
-            individual_detail: { given_names: name },
-        },
-        success_return_url: `${process.env.FRONTEND_URL}/success?order_id=${order.id}`,
-        cancel_return_url: `${process.env.FRONTEND_URL}/cancel`,
-        metadata: {
-            order_id: order.id,
-            subtotal_before_discount: String(total),
-            ...(discountAmount > 0 && {
-                discount_code: discount.code,
-                discount_amount: String(discountAmount),
-                discount_id: discount.id,
-                discount_type: discount.type,
-                discount_value: String(discount.value),
-            }),
-            shipping_cost: String(shippingCost),
-            shipping_note: "FREE SHIPPING",
-            grand_total: String(grandTotal),
-        },
-    };
-
-    const payRes = await fetch("https://api.xendit.co/sessions", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization:
-                "Basic " +
-                Buffer.from(process.env.XENDIT_SECRET_KEY + ":").toString(
-                    "base64"
-                ),
-        },
-        body: JSON.stringify(paymentPayload),
-    });
-
-    const payData = await payRes.json();
-    console.log(paymentRef);
-
-    if (!payRes.ok)
-        throw new Error(payData.message || "Failed to create Xendit session");
-
-    //  Simpan Payment & update Order
+    // simpan payment ke DB (UNIFIED)
     await OrderRepository.createPayment({
         userId: user.id,
         orderId: order.id,
-        referenceId: paymentRef,
-        paymentRequestId: payData.payment_session_id,
-        paymentLinkUrl: payData.payment_link_url,
-        amount: grandTotal, // Amount yang dibayar
+        provider: payment.provider.toUpperCase(),
+        referenceId: payment.referenceId,
+        paymentRequestId: payment.paymentId,
+        paymentLinkUrl: payment.paymentUrl,
+        amount: grandTotal,
         status: "PENDING",
-        expiredAt: payData.expires_at,
+        expiredAt: payment.expiredAt,
     });
 
+    // update order
     const updatedOrder = await OrderRepository.updateOrder(order.id, {
-        referenceId: paymentRef,
-        xenditPaymentId: payData.payment_session_id,
+        referenceId: payment.referenceId,
         status: "DRAFT",
         courierCompany: shipData.courier.company,
-        shippingCost: shippingCost,
+        shippingCost,
         bytestepShipmentId: shipData.id,
     });
 
     return {
         order: updatedOrder,
-        payment_link: payData.payment_link_url,
+        payment_link: payment.paymentUrl,
+        payment_provider: payment.provider,
         shipping_draft: shipData,
         discount_applied:
             discountAmount > 0
