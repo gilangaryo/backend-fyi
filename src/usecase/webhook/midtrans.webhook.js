@@ -1,5 +1,7 @@
 import crypto from "crypto";
 import prisma from "../../prisma/client.js";
+import { sendEmail } from "../../lib/mailer.js";
+import { paymentSuccessTemplate } from "../../lib/templates/paymentSuccess.js";
 
 export async function midtransWebhook(req, res) {
     try {
@@ -87,6 +89,26 @@ export async function midtransWebhook(req, res) {
                         });
                     }
                 }
+            });
+
+            // 5️⃣ 📧 SEND EMAIL to user
+            const orderWithUser = await prisma.order.findUnique({
+                where: { id: order.id },
+                include: {
+                    user: true,
+                    items: {
+                        include: {
+                            product: true,
+                            variant: true,
+                        },
+                    },
+                },
+            });
+
+            await sendEmail({
+                to: orderWithUser.user.email,
+                subject: `Pembayaran Berhasil — Order #${order.id}`,
+                html: paymentSuccessTemplate(orderWithUser, payment),
             });
         }
 

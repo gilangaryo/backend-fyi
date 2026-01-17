@@ -1,12 +1,11 @@
-import express from 'express';
-import prisma from '../prisma/client.js'
+import express from "express";
+import prisma from "../prisma/client.js";
 
 const router = express.Router();
 
 router.post("/validate", async (req, res) => {
     try {
         const { items } = req.body;
-        console.log(items);
         if (!items?.length)
             return res
                 .status(400)
@@ -25,16 +24,12 @@ router.post("/validate", async (req, res) => {
         });
 
         const check = await prisma.productVariant.findUnique({
-            where: { id: '9fe57015-5073-45f6-81b2-146884d66c13' },
+            where: { id: "9fe57015-5073-45f6-81b2-146884d66c13" },
         });
-        console.log(check);
-        console.log("variantttttt", variants);
-
 
         const invalid = [];
 
         for (const item of items) {
-
             const variant = variants.find((v) => v.id === item.variantId);
 
             if (!variant) {
@@ -59,8 +54,9 @@ router.post("/validate", async (req, res) => {
             if (variant.stock < item.quantity) {
                 invalid.push({
                     variantId: item.variantId,
-                    productName: `${variant.product?.title || "Product"} (${variant.size || "-"
-                        }) Out of stock`,
+                    productName: `${variant.product?.title || "Product"} (${
+                        variant.size || "-"
+                    }) Out of stock`,
                     reason: "OUT_OF_STOCK",
                 });
             }
@@ -78,7 +74,5 @@ router.post("/validate", async (req, res) => {
         });
     }
 });
-
-
 
 export default router;

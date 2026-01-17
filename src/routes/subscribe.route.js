@@ -6,7 +6,7 @@ const router = express.Router();
 router.get("/", async (req, res) => {
     try {
         const subscribers = await prisma.subscriber.findMany({
-            orderBy: { subscribedAt: "desc" }
+            orderBy: { subscribedAt: "desc" },
         });
 
         res.json({
@@ -15,7 +15,10 @@ router.get("/", async (req, res) => {
         });
     } catch (err) {
         console.error("❌ Error fetching subscribers:", err);
-        res.status(500).json({ success: false, error: "Internal server error" });
+        res.status(500).json({
+            success: false,
+            error: "Internal server error",
+        });
     }
 });
 
@@ -58,7 +61,10 @@ router.post("/", async (req, res) => {
         });
     } catch (err) {
         console.error("❌ Error saving subscriber:", err);
-        res.status(500).json({ success: false, error: "Internal server error" });
+        res.status(500).json({
+            success: false,
+            error: "Internal server error",
+        });
     }
 });
 
