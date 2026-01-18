@@ -22,6 +22,68 @@ router.get("/", async (req, res) => {
     }
 });
 
+router.get("/export/csv", async (req, res) => {
+    try {
+        const subscribers = await prisma.subscriber.findMany({
+            orderBy: { subscribedAt: "desc" },
+        });
+
+        const csvHeader =
+            "Email,Name,Source,Subscribed At,Status,Verified,Unsubscribed At\n";
+
+        const csvRows = subscribers
+            .map((sub) => {
+                const subscribedAt = new Date(sub.subscribedAt).toLocaleString(
+                    "id-ID",
+                );
+                const unsubscribedAt = sub.unsubscribedAt
+                    ? new Date(sub.unsubscribedAt).toLocaleString("id-ID")
+                    : "";
+
+                return [
+                    sub.email,
+                    sub.name || "",
+                    sub.source,
+                    subscribedAt,
+                    sub.status,
+                    sub.isVerified ? "Yes" : "No",
+                    unsubscribedAt,
+                ]
+                    .map((field) => {
+                        const stringField = String(field);
+                        if (
+                            stringField.includes(",") ||
+                            stringField.includes('"') ||
+                            stringField.includes("\n")
+                        ) {
+                            return `"${stringField.replace(/"/g, '""')}"`;
+                        }
+                        return stringField;
+                    })
+                    .join(",");
+            })
+            .join("\n");
+
+        const csv = csvHeader + csvRows;
+
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename=subscribers-${new Date().toISOString().split("T")[0]}.csv`,
+        );
+
+        res.write("\uFEFF");
+        res.write(csv);
+        res.end();
+    } catch (err) {
+        console.error("❌ Error exporting CSV:", err);
+        res.status(500).json({
+            success: false,
+            error: "Internal server error",
+        });
+    }
+});
+
 router.post("/", async (req, res) => {
     try {
         const { email, source } = req.body;
