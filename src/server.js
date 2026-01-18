@@ -28,7 +28,6 @@ import orderRoutes from "./routes/order.route.js";
 import webhookRoutes from "./routes/webhook.route.js";
 import webhookBiteshipRoutes from "./routes/webhookBiteship.route.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
-// import userRoutes from './routes/user.route.js';
 import blogRoute from "./routes/blog.route.js";
 import settingRoutes from "./routes/setting.route.js";
 import subscribeRoutes from "./routes/subscribe.route.js";
@@ -45,7 +44,11 @@ const app = express();
 app.set("trust proxy", 1);
 
 // 🔒 Security
-app.use(helmet());
+app.use(
+    helmet({
+        crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
+);
 app.use(hpp());
 app.use(compression());
 
@@ -61,13 +64,12 @@ const allowedOrigins = [
     "http://192.168.1.11:3000",
     "https://app.cobatesting.my.id",
     "http://app.cobatesting.my.id",
-
-    // production domains
     "https://fyicouture.com",
     "https://www.fyicouture.com",
     "https://api.fyicouture.com",
     "https://fyi-couture.vercel.app",
 ];
+
 app.use(
     cors({
         origin: function (origin, callback) {
@@ -76,7 +78,7 @@ app.use(
             return callback(new Error("CORS not allowed"));
         },
         credentials: true,
-    })
+    }),
 );
 
 // ⚡ Rate Limiting (API only, not webhook)
@@ -96,23 +98,32 @@ app.use(cookieParser());
 // 🗂 Sessions
 app.use(sessionMiddleware);
 
-// 📂 Static files (uploads)
-app.use("/api/uploads", (req, res, next) => {
-    res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
-    next();
-});
-app.use(
-    "/api/uploads/blog",
-    express.static(path.join(process.cwd(), "uploads", "blog"))
-);
+// 📂 Static files dengan cache headers optimal
+const serveStaticWithCache = (folder, maxAge = "365d") => {
+    return express.static(path.join(process.cwd(), "uploads", folder), {
+        maxAge: maxAge,
+        etag: true,
+        lastModified: true,
+        immutable: true,
+        setHeaders: (res, filePath) => {
+            if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(filePath)) {
+                res.setHeader(
+                    "Cache-Control",
+                    "public, max-age=31536000, immutable",
+                );
+                res.setHeader("Vary", "Accept-Encoding");
+            }
+        },
+    });
+};
 
-app.use(
-    "/api/uploads/collection",
-    express.static(path.join(process.cwd(), "uploads", "collection"))
-);
+// Static routes dengan cache optimal
+app.use("/api/uploads/blog", serveStaticWithCache("blog"));
+app.use("/api/uploads/collection", serveStaticWithCache("collection"));
+app.use("/api/uploads/product", serveStaticWithCache("product"));
+app.use("/api/uploads", serveStaticWithCache(""));
 
-app.use("/api/uploads", express.static(path.join(process.cwd(), "uploads")));
-
+// Rate limiting bypass untuk static files & webhooks
 app.use((req, res, next) => {
     if (
         req.path.startsWith("/api/uploads") ||
@@ -129,11 +140,11 @@ app.use("/api/upload", requireAuth, requireAdmin, uploadRoutes);
 
 // ⚡ Webhook (raw body)
 app.use("/api/payment/webhook", webhookRoutes);
-
 app.use("/api/biteship/webhook", webhookBiteshipRoutes);
 
 // 🚀 Routes
 app.use("/api/auth", authRoutes);
+
 app.get("/", (req, res) => {
     res.json({
         message: "E-Commerce API is running",
@@ -157,7 +168,6 @@ app.get("/restricted", requireAuth, (req, res) => {
     });
 });
 
-// app.use('/api/user', userRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/suggested-products", suggestedRoutes);
 app.use("/api/cart", cartRoutes);
@@ -181,5 +191,5 @@ app.use(errorHandler);
 // 🚦 Start
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
-    console.log(`E-Commerce API running `);
+    console.log(`E-Commerce API running on port ${PORT}`);
 });
