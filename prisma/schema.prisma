@@ -47,8 +47,8 @@ model Product {
   sku         String? @unique
   imageUrl    String?
 
-  details  String?
-  delivery String?
+  details  String? @db.Text
+  delivery String? @db.Text
   status   Boolean @default(true)
 
   createdAt DateTime @default(now())
