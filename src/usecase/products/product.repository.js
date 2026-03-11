@@ -7,7 +7,10 @@ export async function findAllProducts(
     skip = 0,
     limit = 12,
     sortBy = "createdAt",
-    sortOrder = "desc"
+    sortOrder = "desc",
+    collectionSlugs = [],
+    categorySlugs = [],
+    kainNames = [],
 ) {
     const whereClause = {
         ...(statusFilter !== undefined ? { status: statusFilter } : {}),
@@ -20,6 +23,13 @@ export async function findAllProducts(
                   ],
               }
             : {}),
+        ...(collectionSlugs.length > 0
+            ? { collection: { slug: { in: collectionSlugs } } }
+            : {}),
+        ...(categorySlugs.length > 0
+            ? { category: { slug: { in: categorySlugs } } }
+            : {}),
+        ...(kainNames.length > 0 ? { kain: { name: { in: kainNames } } } : {}),
     };
 
     // ✅ Determine orderBy based on sortBy parameter
@@ -67,7 +77,7 @@ export async function findSuggestedProducts(statusFilter, limit) {
 
     const randomOffset = Math.max(
         0,
-        Math.floor(Math.random() * Math.max(totalCount - limit, 0))
+        Math.floor(Math.random() * Math.max(totalCount - limit, 0)),
     );
 
     const products = await prisma.product.findMany({
@@ -199,7 +209,7 @@ export async function updateProductData(id, data, relationalData = {}) {
             const incomingIds = variants.filter((v) => v.id).map((v) => v.id);
 
             const toDelete = existingIds.filter(
-                (id) => !incomingIds.includes(id)
+                (id) => !incomingIds.includes(id),
             );
             if (toDelete.length > 0) {
                 await tx.productVariant.deleteMany({
