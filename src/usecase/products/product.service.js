@@ -71,8 +71,6 @@ export async function createProduct(data) {
         kainId,
     } = data;
 
-    console.log(data);
-
     if (!title || title.trim().length < 3)
         throw new Error("Title is required and must be at least 3 characters");
 

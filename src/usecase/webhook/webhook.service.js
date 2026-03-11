@@ -57,9 +57,8 @@ export async function processPaymentCompleted(payload, token) {
                     data: { stock: { decrement: item.quantity } },
                 });
             }
-        })
+        }),
     );
-    console.log(order);
 
     // Kirim email ke user
     await sendEmail({

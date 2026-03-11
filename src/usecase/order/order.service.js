@@ -52,7 +52,7 @@ export const createOrder = async (payload) => {
 
         if (variant.stock < item.quantity) {
             throw new Error(
-                `${variant.product.title} (${variant.size}) stok habis`
+                `${variant.product.title} (${variant.size}) stok habis`,
             );
         }
 
@@ -89,8 +89,8 @@ export const createOrder = async (payload) => {
         ) {
             throw new Error(
                 `Minimum order amount is IDR ${Number(
-                    discount.minimumOrderAmount
-                ).toLocaleString("id-ID")}`
+                    discount.minimumOrderAmount,
+                ).toLocaleString("id-ID")}`,
             );
         }
 
@@ -228,8 +228,8 @@ export const createOrder = async (payload) => {
                 variantId: b.variantId,
                 quantity: b.quantity,
                 priceAtPurchase: Number(b.product.price),
-            })
-        )
+            }),
+        ),
     );
 
     // INCREMENT DISCOUNT USAGE COUNT
@@ -371,7 +371,7 @@ const confirmBiteshipOrder = async (draftOrderId) => {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${process.env.BITESHIP_API_KEY}`,
                 },
-            }
+            },
         );
 
         const confirmData = await confirmRes.json();
@@ -381,11 +381,9 @@ const confirmBiteshipOrder = async (draftOrderId) => {
             throw new Error(
                 confirmData.message ||
                     confirmData.error ||
-                    "Failed to confirm Biteship order"
+                    "Failed to confirm Biteship order",
             );
         }
-        console.log(confirmData);
-
         return confirmData;
     } catch (error) {
         console.error("❌ Biteship confirm error:", error);
@@ -401,7 +399,7 @@ export const acceptOrder = async (id) => {
 
     if (order.status !== "NEW") {
         throw new Error(
-            `Cannot accept order with status: ${order.status}. Order must be in NEW status.`
+            `Cannot accept order with status: ${order.status}. Order must be in NEW status.`,
         );
     }
 
@@ -412,7 +410,7 @@ export const acceptOrder = async (id) => {
     let confirmedShipment;
     try {
         confirmedShipment = await confirmBiteshipOrder(
-            order.bytestepShipmentId
+            order.bytestepShipmentId,
         );
     } catch (biteshipError) {
         console.error("❌ Failed to confirm Biteship order:", biteshipError);
