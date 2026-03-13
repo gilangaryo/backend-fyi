@@ -9,6 +9,14 @@ import {
     findSuggestedProducts,
 } from "./product.repository.js";
 
+function isSlugUniqueConstraintError(error) {
+    return (
+        error?.code === "P2002" &&
+        Array.isArray(error?.meta?.target) &&
+        error.meta.target.includes("slug")
+    );
+}
+
 // get all
 export async function getAllProducts({
     statusFilter,
@@ -77,9 +85,17 @@ export async function createProduct(data) {
     if (!price || isNaN(price))
         throw new Error("Price is required and must be a valid number");
 
-    const slug = slugify(title, { lower: true, strict: true });
-    const existing = await findProductBySlug(slug);
-    if (existing) throw new Error("Product with this title already exists");
+    // Generate unique slug
+    let slug = slugify(title, { lower: true, strict: true });
+    let existing = await findProductBySlug(slug);
+    let counter = 1;
+
+    // If slug exists, append counter until we find a unique one
+    while (existing) {
+        slug = `${slugify(title, { lower: true, strict: true })}-${counter}`;
+        existing = await findProductBySlug(slug);
+        counter++;
+    }
 
     const totalStock = Array.isArray(variants)
         ? variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
@@ -131,7 +147,24 @@ export async function updateProduct(id, data) {
         if (title.trim().length < 3)
             throw new Error("Title must be at least 3 characters");
         updateData.title = title.trim();
-        updateData.slug = slugify(title, { lower: true, strict: true });
+
+        // Generate unique slug if title is changed
+        let newSlug = slugify(title, { lower: true, strict: true });
+
+        // Only check for duplicates if slug is different from current
+        if (newSlug !== existing.slug) {
+            let slugExists = await findProductBySlug(newSlug);
+            let counter = 1;
+
+            // If slug exists, append counter until we find a unique one
+            while (slugExists) {
+                newSlug = `${slugify(title, { lower: true, strict: true })}-${counter}`;
+                slugExists = await findProductBySlug(newSlug);
+                counter++;
+            }
+        }
+
+        updateData.slug = newSlug;
     }
 
     if (description !== undefined) updateData.description = description;
@@ -161,8 +194,21 @@ export async function updateProduct(id, data) {
 
     const relationalData = { images, variants };
 
-    const updated = await updateProductData(id, updateData, relationalData);
-    return updated;
+    try {
+        const updated = await updateProductData(id, updateData, relationalData);
+        return updated;
+    } catch (error) {
+        if (updateData.slug && isSlugUniqueConstraintError(error)) {
+            updateData.slug = `${updateData.slug}-${id}`;
+            const retried = await updateProductData(
+                id,
+                updateData,
+                relationalData,
+            );
+            return retried;
+        }
+        throw error;
+    }
 }
 
 // delete
