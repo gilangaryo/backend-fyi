@@ -66,6 +66,7 @@ model Product {
 
   orderItems        OrderItem[]
   suggestedProducts SuggestedProduct[]
+  promotionTargets  DiscountProductTarget[]
 
   // indexes
   @@index([categoryId])
@@ -150,7 +151,8 @@ model Collection {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  products Product[]
+  products         Product[]
+  promotionTargets DiscountCollectionTarget[]
 
   @@index([title])
 }
@@ -203,6 +205,7 @@ model Order {
   total              Decimal     @db.Decimal(18, 2)
   shippingCost       Decimal?    @db.Decimal(18, 2)
   subTotal           Decimal     @db.Decimal(18, 2)
+  discountTotal      Decimal     @default(0) @db.Decimal(18, 2)
   xenditPaymentId    String?
   referenceId        String?
   bytestepShipmentId String?
@@ -210,6 +213,7 @@ model Order {
   courierCompany     String?
   discountId         String?
   giftNote           String?
+  pricingBreakdown   Json?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
@@ -309,20 +313,65 @@ model Discount {
   id                 String       @id @default(uuid())
   title              String
   code               String       @unique
+  kind               DiscountKind @default(MINIMUM_PURCHASE_DISCOUNT)
   type               DiscountType
   value              Decimal      @db.Decimal(18, 2)
+  startsAt           DateTime?
   expiresAt          DateTime
+  priority           Int          @default(100)
   usedCount          Int          @default(0)
   minimumOrderAmount Decimal?     @db.Decimal(18, 2)
+  minimumQty         Int?
+  combinableWith     Json?
+  autoApply          Boolean      @default(false)
   status             Boolean      @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  orders Order[]
+  orders            Order[]
+  collectionTargets DiscountCollectionTarget[]
+  productTargets    DiscountProductTarget[]
 
   @@index([code])
   @@index([expiresAt])
+  @@index([kind])
+  @@index([startsAt])
+}
+
+model DiscountCollectionTarget {
+  id           String   @id @default(uuid())
+  discountId   String
+  collectionId String
+  createdAt    DateTime @default(now())
+
+  discount   Discount   @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([discountId, collectionId])
+  @@index([discountId])
+  @@index([collectionId])
+}
+
+model DiscountProductTarget {
+  id         String   @id @default(uuid())
+  discountId String
+  productId  String
+  createdAt  DateTime @default(now())
+
+  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([discountId, productId])
+  @@index([discountId])
+  @@index([productId])
+}
+
+enum DiscountKind {
+  COLLECTION_DISCOUNT
+  SPECIFIC_PRODUCT_DISCOUNT
+  MINIMUM_PURCHASE_DISCOUNT
+  MINIMUM_QTY_DISCOUNT
 }
 
 enum DiscountType {

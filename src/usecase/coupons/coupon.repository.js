@@ -1,9 +1,9 @@
-import prisma from '../../prisma/client.js';
+import prisma from "../../prisma/client.js";
 
 // ambil semua coupon
 export async function findAllCoupons() {
     return prisma.discount.findMany({
-        orderBy: { expiresAt: 'asc' },
+        orderBy: { expiresAt: "asc" },
     });
 }
 
@@ -14,7 +14,7 @@ export async function findCouponById(id) {
 
 // ambil coupon by code
 export async function findCouponByCode(code) {
-    return prisma.discount.findUnique({ where: { code } });
+    return prisma.discount.findUnique({ where: { code: code.toUpperCase() } });
 }
 
 // buat coupon baru

@@ -1,30 +1,63 @@
 import midtransClient from "midtrans-client";
 
-export async function createMidtransPayment({ order, basket, user, amount }) {
+function buildMidtransItemDetails({ basket, promotions }) {
+    return [
+        ...basket.map((item) => ({
+            id: item.variantId,
+            price: Math.round(item.baseUnitPrice || item.product.price),
+            quantity: item.quantity,
+            name: item.product.title.substring(0, 50),
+        })),
+        ...(promotions || [])
+            .filter((promotion) => Number(promotion.amount) > 0)
+            .map((promotion) => ({
+                id: `promo-${promotion.code || promotion.id}`.substring(0, 50),
+                price: -Math.round(promotion.amount),
+                quantity: 1,
+                name: `Diskon: ${promotion.title || promotion.code || promotion.id}`.substring(
+                    0,
+                    50,
+                ),
+            })),
+        {
+            id: "shipping",
+            price: 0,
+            quantity: 1,
+            name: "Shipping (FREE)",
+        },
+    ];
+}
+
+function calculateGrossAmount(itemDetails) {
+    return itemDetails.reduce(
+        (sum, item) => sum + Math.round(item.price) * item.quantity,
+        0,
+    );
+}
+
+export async function createMidtransPayment({
+    order,
+    basket,
+    user,
+    promotions,
+}) {
     const snap = new midtransClient.Snap({
         isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
         serverKey: process.env.MIDTRANS_SERVER_KEY,
     });
 
+    const itemDetails = buildMidtransItemDetails({
+        basket,
+        promotions,
+    });
+    const grossAmount = calculateGrossAmount(itemDetails);
+
     const transaction = {
         transaction_details: {
             order_id: `FYI-${Date.now()}`,
-            gross_amount: Math.round(amount),
+            gross_amount: grossAmount,
         },
-        item_details: [
-            ...basket.map((b) => ({
-                id: b.variantId,
-                price: Math.round(b.product.price),
-                quantity: b.quantity,
-                name: b.product.title.substring(0, 50),
-            })),
-            {
-                id: "shipping",
-                price: 0,
-                quantity: 1,
-                name: "Shipping (FREE)",
-            },
-        ],
+        item_details: itemDetails,
         customer_details: {
             first_name: user.name,
             email: user.email,

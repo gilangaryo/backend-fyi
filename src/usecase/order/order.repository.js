@@ -32,6 +32,7 @@ export const findOrderById = async (id) => {
                 select: {
                     id: true,
                     code: true,
+                    kind: true,
                     type: true,
                     value: true,
                 },
@@ -56,6 +57,7 @@ export const findAllOrdersPaginated = async (where, skip, limit) => {
             items: { include: { product: true } },
             payments: { select: { status: true } },
             shippingAddress: true,
+            discount: true,
             tracking: true,
         },
         orderBy: { createdAt: "desc" },

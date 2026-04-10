@@ -2,10 +2,8 @@ import {
     findAllCoupons,
     findCouponById,
     findCouponByCode,
-    insertCoupon,
-    updateCouponData,
-    deleteCouponData,
-} from './coupon.repository.js';
+} from "./coupon.repository.js";
+import { discountService } from "../discount/discount.service.js";
 
 // get all
 export async function getAllCoupons() {
@@ -15,51 +13,35 @@ export async function getAllCoupons() {
 // get by id
 export async function getCoupon(id) {
     const coupon = await findCouponById(id);
-    if (!coupon) throw new Error('Coupon not found');
+    if (!coupon) throw new Error("Coupon not found");
     return coupon;
 }
 
 // get by code (user apply)
 export async function getCouponByCode(code) {
     const coupon = await findCouponByCode(code);
-    if (!coupon) throw new Error('Coupon not found');
+    if (!coupon) throw new Error("Coupon not found");
 
-    const now = new Date();
-    if (coupon.expiresAt < now) {
-        throw new Error('Coupon expired');
-    }
+    if (!coupon.status) throw new Error("Coupon inactive");
+    if (coupon.expiresAt < new Date()) throw new Error("Coupon expired");
 
     return coupon;
 }
 
 // create
 export async function createCoupon(data) {
-    const { title, code, type, value, expiresAt } = data;
-
-    if (!title || !code || !type || !value || !expiresAt) {
-        throw new Error('All fields are required');
-    }
-
-    const existing = await findCouponByCode(code);
-    if (existing) {
-        throw new Error('Coupon code already exists');
-    }
-
-    return insertCoupon({
-        title: title.trim(),
-        code: code.trim().toUpperCase(),
-        type,
-        value,
-        expiresAt: new Date(expiresAt),
+    return discountService.createDiscount({
+        kind: data.kind || "MINIMUM_PURCHASE_DISCOUNT",
+        ...data,
     });
 }
 
 // update
 export async function updateCoupon(id, data) {
-    return updateCouponData(id, data);
+    return discountService.updateDiscount(id, data);
 }
 
 // delete
 export async function removeCoupon(id) {
-    return deleteCouponData(id);
+    return discountService.deleteDiscount(id);
 }

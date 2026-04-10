@@ -6,7 +6,7 @@ export async function createXenditPayment({
     basket,
     user,
     amount,
-    discount,
+    promotions,
     shippingCost,
 }) {
     const paymentRef = `order_${order.id}`;
@@ -19,12 +19,14 @@ export async function createXenditPayment({
         quantity: b.quantity,
     }));
 
-    if (discount?.amount > 0) {
+    for (const promotion of promotions || []) {
+        if (promotion.amount <= 0) continue;
+
         items.push({
             type: "FEE",
-            reference_id: `discount_${discount.code}`,
-            name: `Discount ${discount.code}`,
-            net_unit_amount: -discount.amount,
+            reference_id: `discount_${promotion.code}`,
+            name: `Discount ${promotion.code}`,
+            net_unit_amount: -promotion.amount,
             quantity: 1,
         });
     }
@@ -55,7 +57,7 @@ export async function createXenditPayment({
             Authorization:
                 "Basic " +
                 Buffer.from(process.env.XENDIT_SECRET_KEY + ":").toString(
-                    "base64"
+                    "base64",
                 ),
         },
         body: JSON.stringify(payload),

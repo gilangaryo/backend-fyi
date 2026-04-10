@@ -7,6 +7,11 @@ import getDefaultCourierType from "../../lib/courier.js";
 import { sendEmail } from "../../lib/mailer.js";
 import { acceptOrderTrackingTemplate } from "../../lib/templates/acceptOrder.js";
 import { createPayment } from "./payment/index.js";
+import {
+    buildBasketFromVariants,
+    evaluatePromotions,
+    loadPromotions,
+} from "../../lib/promo-engine/promo-engine.js";
 
 export const createOrder = async (payload) => {
     const {
@@ -18,6 +23,8 @@ export const createOrder = async (payload) => {
         shipping,
         giftNote,
         discountId,
+        discountIds,
+        promoCodes,
     } = payload;
 
     if (!email || !items?.length) {
@@ -37,6 +44,8 @@ export const createOrder = async (payload) => {
                     slug: true,
                     imageUrl: true,
                     price: true,
+                    status: true,
+                    collectionId: true,
                 },
             },
         },
@@ -45,74 +54,37 @@ export const createOrder = async (payload) => {
     if (dbVariants.length !== items.length)
         throw new Error("Beberapa produk tidak ditemukan");
 
-    const basket = items.map((item) => {
-        const variant = dbVariants.find((v) => v.id === item.variantId);
-        if (!variant)
-            throw new Error(`Variant ${item.variantId} tidak ditemukan`);
+    const basket = buildBasketFromVariants(items, dbVariants);
+    const total = basket.reduce((sum, item) => sum + item.baseLineSubtotal, 0);
 
-        if (variant.stock < item.quantity) {
-            throw new Error(
-                `${variant.product.title} (${variant.size}) stok habis`,
-            );
-        }
-
-        return {
-            variantId: variant.id,
-            size: variant.size,
-            product: variant.product,
-            quantity: item.quantity,
-            subtotal: Number(variant.product.price) * item.quantity,
-        };
+    const requestedPromotionIds = [discountId, ...(discountIds || [])].filter(
+        Boolean,
+    );
+    const requestedPromotionCodes = (promoCodes || []).filter(Boolean);
+    const promotions = await loadPromotions({
+        ids: requestedPromotionIds,
+        codes: requestedPromotionCodes,
     });
+    const pricing = evaluatePromotions({ basket, promotions });
+    const appliedPromotions = pricing.promotions.applied;
+    const discountAmount = pricing.summary.totalDiscount;
+    const pricedBasket = pricing.items;
 
-    const total = basket.reduce((s, b) => s + b.subtotal, 0);
-
-    let discount = null;
-    let discountAmount = 0;
-
-    if (discountId) {
-        discount = await prisma.discount.findUnique({
-            where: { id: discountId },
-        });
-
-        if (!discount) {
-            throw new Error("Discount code not found");
-        }
-
-        if (new Date(discount.expiresAt) < new Date()) {
-            throw new Error("Discount code has expired");
-        }
-
-        if (
-            discount.minimumOrderAmount &&
-            total < discount.minimumOrderAmount
-        ) {
-            throw new Error(
-                `Minimum order amount is IDR ${Number(
-                    discount.minimumOrderAmount,
-                ).toLocaleString("id-ID")}`,
-            );
-        }
-
-        if (discount.type === "PERCENT") {
-            discountAmount = Math.floor((total * Number(discount.value)) / 100);
-        } else if (discount.type === "VALUE") {
-            discountAmount = Number(discount.value);
-        }
-
-        if (discountAmount > total) {
-            discountAmount = total;
-        }
-
-        console.log("💰 Discount applied:", {
-            code: discount.code,
-            type: discount.type,
-            value: discount.value,
-            discountAmount,
-        });
+    if (
+        (requestedPromotionIds.length > 0 ||
+            requestedPromotionCodes.length > 0) &&
+        appliedPromotions.length === 0
+    ) {
+        throw new Error(
+            pricing.promotions.rejected[0]?.reason ||
+                "No eligible promotion found",
+        );
     }
 
-    const grandTotal = total - discountAmount;
+    const grandTotal = pricing.summary.payableSubtotal;
+    const primaryPromotion = promotions.find(
+        (promotion) => promotion.id === appliedPromotions[0]?.id,
+    );
 
     const defaultCourierSetting = await prisma.setting.findUnique({
         where: { key: "default_courier" },
@@ -152,11 +124,11 @@ export const createOrder = async (payload) => {
         delivery_type: "now",
 
         order_note: shipping?.order_note || "",
-        items: basket.map((b) => ({
+        items: pricedBasket.map((b) => ({
             name: b.product.title,
             description: b.product.title,
             category: "fashion",
-            value: Number(b.product.price),
+            value: Number(b.effectiveUnitPrice),
             quantity: b.quantity,
             height: 10,
             length: 10,
@@ -211,52 +183,53 @@ export const createOrder = async (payload) => {
     const order = await OrderRepository.createOrder({
         userId: user.id,
         subTotal: subTotal,
+        discountTotal: discountAmount,
         shippingCost,
-        shippingAddressId: shippingAddress.id,
+        shippingAddressId: shippingAddress?.id || null,
         giftNote: giftNote || null,
-        discountId: discountId || null,
+        discountId: primaryPromotion?.id || null,
+        pricingBreakdown: pricing,
         total: grandTotal, // Total yang dibayar user (sudah include discount, shipping FREE)
         status: "DRAFT",
     });
 
     //  Simpan item
     await Promise.all(
-        basket.map((b) =>
+        pricedBasket.map((b) =>
             OrderRepository.createOrderItem({
                 orderId: order.id,
                 productId: b.product.id,
                 variantId: b.variantId,
                 quantity: b.quantity,
-                priceAtPurchase: Number(b.product.price),
+                priceAtPurchase: Number(b.effectiveUnitPrice),
             }),
         ),
     );
 
-    // INCREMENT DISCOUNT USAGE COUNT
-    if (discountId) {
-        await prisma.discount.update({
-            where: { id: discountId },
-            data: {
-                usedCount: {
-                    increment: 1,
-                },
-            },
-        });
-        console.log("✅ Discount usage count incremented");
+    if (appliedPromotions.length > 0) {
+        await Promise.all(
+            appliedPromotions.map((promotion) =>
+                prisma.discount.update({
+                    where: { id: promotion.id },
+                    data: {
+                        usedCount: {
+                            increment: 1,
+                        },
+                    },
+                }),
+            ),
+        );
     }
-    const grossAmountForPayment = total - discountAmount;
+    const grossAmountForPayment = grandTotal;
 
     // ================= PAYMENT =================
     const payment = await createPayment({
         provider: process.env.PAYMENT_PROVIDER, // xendit | midtrans
         order,
-        basket,
+        basket: pricedBasket,
         user,
         amount: grossAmountForPayment,
-        discount:
-            discountAmount > 0
-                ? { code: discount.code, amount: discountAmount }
-                : null,
+        promotions: appliedPromotions,
         shippingCost,
     });
 
@@ -287,13 +260,8 @@ export const createOrder = async (payload) => {
         payment_link: payment.paymentUrl,
         payment_provider: payment.provider,
         shipping_draft: shipData,
-        discount_applied:
-            discountAmount > 0
-                ? {
-                      code: discount.code,
-                      amount: discountAmount,
-                  }
-                : null,
+        discount_applied: appliedPromotions,
+        pricing,
     };
 };
 

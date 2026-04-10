@@ -8,6 +8,7 @@ import {
     deleteProductData,
     findSuggestedProducts,
 } from "./product.repository.js";
+import { attachProductPricing } from "../../lib/promo-engine/promo-engine.js";
 
 function isSlugUniqueConstraintError(error) {
     return (
@@ -29,7 +30,7 @@ export async function getAllProducts({
     categorySlugs = [],
     kainNames = [],
 }) {
-    return findAllProducts(
+    const result = await findAllProducts(
         statusFilter,
         search,
         skip,
@@ -40,24 +41,32 @@ export async function getAllProducts({
         categorySlugs,
         kainNames,
     );
+
+    return {
+        ...result,
+        products: await attachProductPricing(result.products),
+    };
 }
 
 export async function getSuggestedProducts(statusFilter, limit) {
-    return findSuggestedProducts(statusFilter, limit);
+    const products = await findSuggestedProducts(statusFilter, limit);
+    return attachProductPricing(products);
 }
 
 // get by id
 export async function getProduct(id) {
     const product = await findProductById(id);
     if (!product) throw new Error("Product not found");
-    return product;
+    const [enriched] = await attachProductPricing([product]);
+    return enriched;
 }
 
 // get by slug
 export async function getProductSlug(slug) {
     const product = await findProductBySlug(slug);
     if (!product) throw new Error("Product not found");
-    return product;
+    const [enriched] = await attachProductPricing([product]);
+    return enriched;
 }
 
 // create

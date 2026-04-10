@@ -1,76 +1,28 @@
 import express from "express";
-import prisma from "../prisma/client.js";
+import { previewPromotions } from "../lib/promo-engine/promo-engine.js";
 
 const router = express.Router();
 
 router.post("/validate", async (req, res) => {
     try {
-        const { items } = req.body;
-        if (!items?.length)
-            return res
-                .status(400)
-                .json({ success: false, message: "Empty cart" });
+        const { items, code, codes, discountId, discountIds } = req.body;
 
-        const variants = await prisma.productVariant.findMany({
-            where: { id: { in: items.map((i) => i.variantId) } },
-            select: {
-                id: true,
-                stock: true,
-                size: true,
-                product: {
-                    select: { id: true, title: true, status: true },
-                },
-            },
+        const preview = await previewPromotions({
+            items,
+            codes: [code, ...(codes || [])].filter(Boolean),
+            ids: [discountId, ...(discountIds || [])].filter(Boolean),
         });
-
-        const check = await prisma.productVariant.findUnique({
-            where: { id: "9fe57015-5073-45f6-81b2-146884d66c13" },
-        });
-
-        const invalid = [];
-
-        for (const item of items) {
-            const variant = variants.find((v) => v.id === item.variantId);
-
-            if (!variant) {
-                invalid.push({
-                    variantId: item.variantId,
-                    productName: "Variant not found",
-                    reason: "VARIANT_NOT_FOUND",
-                });
-                continue;
-            }
-
-            if (!variant.product?.status) {
-                invalid.push({
-                    variantId: item.variantId,
-                    productName: variant.product?.title || "Product inactive",
-                    reason: "PRODUCT_INACTIVE",
-                });
-                continue;
-            }
-
-            // Kasus 3: stok tidak cukup
-            if (variant.stock < item.quantity) {
-                invalid.push({
-                    variantId: item.variantId,
-                    productName: `${variant.product?.title || "Product"} (${
-                        variant.size || "-"
-                    }) Out of stock`,
-                    reason: "OUT_OF_STOCK",
-                });
-            }
-        }
 
         return res.json({
-            success: true,
-            invalid,
+            success: preview.valid,
+            invalid: preview.invalid,
+            pricing: preview.pricing,
         });
     } catch (err) {
         console.error("❌ Error validating cart:", err);
         return res.status(500).json({
             success: false,
-            message: "Error validating cart",
+            message: err.message || "Error validating cart",
         });
     }
 });

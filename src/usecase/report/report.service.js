@@ -37,7 +37,7 @@ const getDateRange = (period, startDate, endDate) => {
                     23,
                     59,
                     59,
-                    999
+                    999,
                 );
                 break;
             default:
@@ -60,17 +60,21 @@ export const reportService = {
         const orders = await reportRepository.getOrdersByDateRange(
             start,
             end,
-            validSalesStatuses
+            validSalesStatuses,
         );
 
         // Calculate gross sales (total dari semua order)
         const grossSales = orders.reduce(
             (sum, order) => sum + parseFloat(order.total),
-            0
+            0,
         );
 
         // Calculate total discounts yang sudah diaplikasikan
         const discount = orders.reduce((sum, order) => {
+            if (order.discountTotal) {
+                return sum + parseFloat(order.discountTotal);
+            }
+
             if (order.discountId && order.discount) {
                 // Hitung discount amount berdasarkan type
                 let discountAmount = 0;
@@ -91,11 +95,11 @@ export const reportService = {
         // Get refunded/cancelled orders
         const refunds = await reportRepository.getRefundedOrdersCount(
             start,
-            end
+            end,
         );
         const shippingCosts = await reportRepository.getShippingCostOrdersCount(
             start,
-            end
+            end,
         );
 
         // Calculate net sales (gross - discount)
@@ -105,8 +109,8 @@ export const reportService = {
         const expense = Math.round(
             shippingCosts.reduce(
                 (sum, order) => sum + parseFloat(order.shippingCost),
-                0
-            )
+                0,
+            ),
         );
 
         const totalCollected = netSales - expense;

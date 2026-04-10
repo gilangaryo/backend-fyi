@@ -1,4 +1,4 @@
-import { discountService } from './discount.service.js';
+import { discountService } from "./discount.service.js";
 
 export const discountController = {
     async getAll(req, res, next) {
@@ -44,7 +44,7 @@ export const discountController = {
             const discount = await discountService.createDiscount(req.body);
             res.status(201).json({
                 success: true,
-                message: 'Discount created successfully',
+                message: "Discount created successfully",
                 data: discount,
             });
         } catch (err) {
@@ -58,7 +58,7 @@ export const discountController = {
             const discount = await discountService.updateDiscount(id, req.body);
             res.json({
                 success: true,
-                message: 'Discount updated successfully',
+                message: "Discount updated successfully",
                 data: discount,
             });
         } catch (err) {
@@ -72,7 +72,7 @@ export const discountController = {
             await discountService.deleteDiscount(id);
             res.json({
                 success: true,
-                message: 'Discount deleted successfully',
+                message: "Discount deleted successfully",
             });
         } catch (err) {
             next(err);
@@ -81,33 +81,39 @@ export const discountController = {
 
     async validate(req, res, next) {
         try {
-            const { code, orderTotal } = req.body;
+            const { code, codes, discountId, discountIds, items, autoApply } =
+                req.body;
 
-            if (!code || !orderTotal) {
+            if (!items?.length) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Missing required fields: code, orderTotal',
+                    message: "Missing required field: items",
                 });
             }
 
-            const result = await discountService.validateDiscount(code, parseFloat(orderTotal));
+            const result = await discountService.validateDiscount({
+                code,
+                codes,
+                ids: [discountId, ...(discountIds || [])].filter(Boolean),
+                items,
+                autoApply: Boolean(autoApply),
+            });
 
             if (!result.valid) {
                 return res.status(400).json({
                     success: false,
                     message: result.message,
+                    data: {
+                        invalid: result.invalid || [],
+                        pricing: result.pricing || null,
+                    },
                 });
             }
 
             res.json({
                 success: true,
                 message: result.message,
-                data: {
-                    discountId: result.discount.id,
-                    discountAmount: result.discountAmount,
-                    type: result.discount.type,
-                    value: result.discount.value,
-                },
+                data: result.pricing,
             });
         } catch (err) {
             next(err);
@@ -129,6 +135,5 @@ export const discountController = {
         } catch (err) {
             next(err);
         }
-    }
-
+    },
 };

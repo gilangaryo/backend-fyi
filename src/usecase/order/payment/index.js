@@ -7,7 +7,7 @@ export async function createPayment({
     basket,
     user,
     amount,
-    discount,
+    promotions,
     shippingCost,
 }) {
     switch (provider) {
@@ -17,6 +17,7 @@ export async function createPayment({
                 basket,
                 user,
                 amount,
+                promotions,
                 shippingCost,
             });
 
@@ -27,7 +28,7 @@ export async function createPayment({
                 basket,
                 user,
                 amount,
-                discount,
+                promotions,
                 shippingCost,
             });
     }
