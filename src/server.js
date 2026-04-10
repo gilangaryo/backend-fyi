@@ -69,6 +69,7 @@ const allowedOrigins = [
     "https://www.fyicouture.com",
     "https://api.fyicouture.com",
     "https://fyi-couture.vercel.app",
+    "http://fyi-frontend-fyi-j71v20-826aea-76-13-193-236.traefik.me",
 ];
 
 app.use(
