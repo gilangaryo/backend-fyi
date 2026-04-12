@@ -1,6 +1,10 @@
 import { discountRepository } from "./discount.repository.js";
 import prisma from "../../prisma/client.js";
-import { previewPromotions } from "../../lib/promo-engine/promo-engine.js";
+import {
+    previewPromotions,
+    buildBasketFromVariants,
+    evaluatePromotions,
+} from "../../lib/promo-engine/promo-engine.js";
 
 const DISCOUNT_KINDS = [
     "COLLECTION_DISCOUNT",
@@ -296,6 +300,68 @@ export const discountService = {
             message: "Promotion preview generated successfully",
             ...result,
         };
+    },
+
+    async availableForCart({ items = [] }) {
+        if (!items?.length) throw new Error("Missing required field: items");
+
+        const dbVariants = await prisma.productVariant.findMany({
+            where: { id: { in: items.map((item) => item.variantId) } },
+            include: {
+                product: {
+                    select: {
+                        id: true,
+                        title: true,
+                        slug: true,
+                        imageUrl: true,
+                        price: true,
+                        status: true,
+                        collectionId: true,
+                    },
+                },
+            },
+        });
+
+        const basket = buildBasketFromVariants(items, dbVariants);
+        const now = new Date();
+        const promotions = await prisma.discount.findMany({
+            where: {
+                status: true,
+                OR: [{ startsAt: null }, { startsAt: { lte: now } }],
+                expiresAt: { gte: now },
+            },
+            include: {
+                collectionTargets: {
+                    include: {
+                        collection: {
+                            select: {
+                                id: true,
+                                title: true,
+                                slug: true,
+                            },
+                        },
+                    },
+                },
+                productTargets: {
+                    include: {
+                        product: {
+                            select: {
+                                id: true,
+                                title: true,
+                                slug: true,
+                                price: true,
+                                collectionId: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
+        });
+        const result = evaluatePromotions({ basket, promotions });
+
+        // Return ALL eligible promotions (not just the applied ones)
+        return result.promotions.eligible;
     },
 
     async applyDiscount(id) {

@@ -79,6 +79,24 @@ export const discountController = {
         }
     },
 
+    async available(req, res, next) {
+        try {
+            const { items } = req.body;
+
+            if (!items?.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Missing required field: items",
+                });
+            }
+
+            const eligible = await discountService.availableForCart({ items });
+            res.json({ success: true, data: eligible });
+        } catch (err) {
+            next(err);
+        }
+    },
+
     async validate(req, res, next) {
         try {
             const { code, codes, discountId, discountIds, items, autoApply } =
