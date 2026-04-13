@@ -1,15 +1,32 @@
 import midtransClient from "midtrans-client";
 
+const CART_LEVEL_PROMOTION_KINDS = [
+    "MINIMUM_PURCHASE_DISCOUNT",
+    "MINIMUM_QTY_DISCOUNT",
+];
+
+function isCartLevelPromotion(promotion) {
+    return CART_LEVEL_PROMOTION_KINDS.includes(promotion?.kind);
+}
+
 function buildMidtransItemDetails({ basket, promotions }) {
     return [
         ...basket.map((item) => ({
             id: item.variantId,
-            price: Math.round(item.baseUnitPrice || item.product.price),
+            price: Math.round(
+                item.effectiveUnitPrice ??
+                    item.baseUnitPrice ??
+                    item.product.price,
+            ),
             quantity: item.quantity,
             name: item.product.title.substring(0, 50),
         })),
         ...(promotions || [])
-            .filter((promotion) => Number(promotion.amount) > 0)
+            .filter(
+                (promotion) =>
+                    Number(promotion.amount) > 0 &&
+                    isCartLevelPromotion(promotion),
+            )
             .map((promotion) => ({
                 id: `promo-${promotion.code || promotion.id}`.substring(0, 50),
                 price: -Math.round(promotion.amount),
@@ -51,6 +68,10 @@ export async function createMidtransPayment({
         promotions,
     });
     const grossAmount = calculateGrossAmount(itemDetails);
+
+    if (grossAmount <= 0) {
+        throw new Error("Invalid payable amount for Midtrans transaction");
+    }
 
     const transaction = {
         transaction_details: {

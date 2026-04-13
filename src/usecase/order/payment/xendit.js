@@ -1,6 +1,15 @@
 import fetch from "node-fetch";
 import { v4 as uuid } from "uuid";
 
+const CART_LEVEL_PROMOTION_KINDS = [
+    "MINIMUM_PURCHASE_DISCOUNT",
+    "MINIMUM_QTY_DISCOUNT",
+];
+
+function isCartLevelPromotion(promotion) {
+    return CART_LEVEL_PROMOTION_KINDS.includes(promotion?.kind);
+}
+
 export async function createXenditPayment({
     order,
     basket,
@@ -15,12 +24,15 @@ export async function createXenditPayment({
         type: "PHYSICAL_PRODUCT",
         reference_id: b.variantId,
         name: b.product.title,
-        net_unit_amount: Number(b.product.price),
+        net_unit_amount: Number(
+            b.effectiveUnitPrice ?? b.baseUnitPrice ?? b.product.price,
+        ),
         quantity: b.quantity,
     }));
 
     for (const promotion of promotions || []) {
         if (promotion.amount <= 0) continue;
+        if (!isCartLevelPromotion(promotion)) continue;
 
         items.push({
             type: "FEE",

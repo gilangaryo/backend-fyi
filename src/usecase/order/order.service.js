@@ -10,6 +10,7 @@ import { createPayment } from "./payment/index.js";
 import {
     buildBasketFromVariants,
     evaluatePromotions,
+    getActiveProductPromotions,
     loadPromotions,
 } from "../../lib/promo-engine/promo-engine.js";
 
@@ -61,10 +62,27 @@ export const createOrder = async (payload) => {
         Boolean,
     );
     const requestedPromotionCodes = (promoCodes || []).filter(Boolean);
-    const promotions = await loadPromotions({
+    const selectedPromotions = await loadPromotions({
         ids: requestedPromotionIds,
         codes: requestedPromotionCodes,
     });
+
+    // Keep final order pricing consistent with preview: always include
+    // active specific-product promotions for products in this basket.
+    const productIds = [
+        ...new Set(dbVariants.map((variant) => variant.product.id)),
+    ];
+    const specificProductPromos = await getActiveProductPromotions(productIds);
+    const selectedPromotionIds = new Set(
+        selectedPromotions.map((promo) => promo.id),
+    );
+    const promotions = [
+        ...selectedPromotions,
+        ...specificProductPromos.filter(
+            (promo) => !selectedPromotionIds.has(promo.id),
+        ),
+    ];
+
     const pricing = evaluatePromotions({ basket, promotions });
     const appliedPromotions = pricing.promotions.applied;
     const discountAmount = pricing.summary.totalDiscount;
