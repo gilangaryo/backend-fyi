@@ -1,23 +1,34 @@
 import midtransClient from "midtrans-client";
 
-const CART_LEVEL_PROMOTION_KINDS = [
+const DISCOUNT_LINE_KINDS = [
+    "COLLECTION_DISCOUNT",
     "MINIMUM_PURCHASE_DISCOUNT",
     "MINIMUM_QTY_DISCOUNT",
 ];
 
-function isCartLevelPromotion(promotion) {
-    return CART_LEVEL_PROMOTION_KINDS.includes(promotion?.kind);
+function shouldShowAsDiscountLine(promotion) {
+    return DISCOUNT_LINE_KINDS.includes(promotion?.kind);
+}
+
+/**
+ * Return per-unit price after specific-product discount only
+ * (undo any collection discount baked into effectiveUnitPrice).
+ */
+function getSpecificOnlyUnitPrice(item) {
+    const collectionPerUnit =
+        (item.adjustments || [])
+            .filter((adj) => adj.kind === "COLLECTION_DISCOUNT")
+            .reduce((sum, adj) => sum + adj.amount, 0) / (item.quantity || 1);
+    const effective =
+        item.effectiveUnitPrice ?? item.baseUnitPrice ?? item.product.price;
+    return Math.round(Number(effective) + collectionPerUnit);
 }
 
 function buildMidtransItemDetails({ basket, promotions }) {
     return [
         ...basket.map((item) => ({
             id: item.variantId,
-            price: Math.round(
-                item.effectiveUnitPrice ??
-                    item.baseUnitPrice ??
-                    item.product.price,
-            ),
+            price: getSpecificOnlyUnitPrice(item),
             quantity: item.quantity,
             name: item.product.title.substring(0, 50),
         })),
@@ -25,7 +36,7 @@ function buildMidtransItemDetails({ basket, promotions }) {
             .filter(
                 (promotion) =>
                     Number(promotion.amount) > 0 &&
-                    isCartLevelPromotion(promotion),
+                    shouldShowAsDiscountLine(promotion),
             )
             .map((promotion) => ({
                 id: `promo-${promotion.code || promotion.id}`.substring(0, 50),
