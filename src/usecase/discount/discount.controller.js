@@ -72,7 +72,7 @@ export const discountController = {
             await discountService.deleteDiscount(id);
             res.json({
                 success: true,
-                message: "Discount deleted successfully",
+                message: "Discount archived successfully",
             });
         } catch (err) {
             next(err);

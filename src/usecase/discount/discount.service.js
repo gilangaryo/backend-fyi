@@ -246,14 +246,7 @@ export const discountService = {
         const discount = await discountRepository.findById(id);
         if (!discount) throw new Error("Discount not found");
 
-        // Check if discount is being used in any orders
-        if (discount._count && discount._count.orders > 0) {
-            throw new Error(
-                "Cannot delete discount that has been used in orders",
-            );
-        }
-
-        return await discountRepository.delete(id);
+        return await discountRepository.softDelete(id);
     },
 
     async validateDiscount({
@@ -327,6 +320,7 @@ export const discountService = {
         const promotions = await prisma.discount.findMany({
             where: {
                 status: true,
+                deletedAt: null,
                 OR: [{ startsAt: null }, { startsAt: { lte: now } }],
                 expiresAt: { gte: now },
             },

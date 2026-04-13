@@ -78,21 +78,22 @@ function buildUpdateTargetRelations(data) {
 export const discountRepository = {
     async findAll() {
         return prisma.discount.findMany({
+            where: { deletedAt: null },
             orderBy: { createdAt: "desc" },
             include: discountInclude,
         });
     },
 
     async findById(id) {
-        return prisma.discount.findUnique({
-            where: { id },
+        return prisma.discount.findFirst({
+            where: { id, deletedAt: null },
             include: discountInclude,
         });
     },
 
     async findByCode(code) {
-        return prisma.discount.findUnique({
-            where: { code: code.toUpperCase() },
+        return prisma.discount.findFirst({
+            where: { code: code.toUpperCase(), deletedAt: null },
             include: discountInclude,
         });
     },
@@ -152,9 +153,13 @@ export const discountRepository = {
         });
     },
 
-    async delete(id) {
-        return prisma.discount.delete({
+    async softDelete(id) {
+        return prisma.discount.update({
             where: { id },
+            data: {
+                deletedAt: new Date(),
+                status: false,
+            },
         });
     },
 
@@ -175,8 +180,8 @@ export const discountRepository = {
             where.id = { not: excludeId };
         }
 
-        const existing = await prisma.discount.findUnique({
-            where: { code: code.toUpperCase() },
+        const existing = await prisma.discount.findFirst({
+            where: { code: code.toUpperCase(), deletedAt: null },
         });
         if (existing && existing.id !== excludeId) {
             return true;

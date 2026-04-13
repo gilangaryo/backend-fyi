@@ -325,6 +325,7 @@ model Discount {
   combinableWith     Json?
   autoApply          Boolean      @default(false)
   status             Boolean      @default(true)
+  deletedAt          DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -334,6 +335,7 @@ model Discount {
   productTargets    DiscountProductTarget[]
 
   @@index([code])
+  @@index([deletedAt])
   @@index([expiresAt])
   @@index([kind])
   @@index([startsAt])

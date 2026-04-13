@@ -112,6 +112,24 @@ function comparePromotionCandidates(left, right) {
     );
 }
 
+function compareTopLevelCandidates(left, right) {
+    if (right.previewAmount !== left.previewAmount) {
+        return right.previewAmount - left.previewAmount;
+    }
+
+    const priorityDiff = comparePromotionPriority(
+        left?.promotion,
+        right?.promotion,
+    );
+    if (priorityDiff !== 0) {
+        return priorityDiff;
+    }
+
+    return String(left.promotion?.id || "").localeCompare(
+        String(right.promotion?.id || ""),
+    );
+}
+
 function formatPromotionSnapshot(discount) {
     return {
         id: discount.id,
@@ -311,6 +329,7 @@ export async function loadPromotions({
 
     return prisma.discount.findMany({
         where: {
+            deletedAt: null,
             OR: conditions,
         },
         include: defaultDiscountInclude,
@@ -328,6 +347,7 @@ export async function getActiveProductPromotions(productIds = []) {
     return prisma.discount.findMany({
         where: {
             status: true,
+            deletedAt: null,
             kind: "SPECIFIC_PRODUCT_DISCOUNT",
             OR: [{ startsAt: null }, { startsAt: { lte: now } }],
             expiresAt: { gte: now },
@@ -402,73 +422,133 @@ export function evaluatePromotions({
         ITEM_LEVEL_KINDS.includes(promotion.kind),
     );
 
-    const topLevelCandidates = [];
-
-    for (const promotion of itemPromotions) {
+    // Phase 1 – SPECIFIC_PRODUCT_DISCOUNT: best one applied first.
+    const specificProductCandidates = [];
+    for (const promotion of itemPromotions.filter(
+        (p) => p.kind === "SPECIFIC_PRODUCT_DISCOUNT",
+    )) {
         const snapshot = formatPromotionSnapshot(promotion);
         if (!isPromotionActive(promotion, now)) {
             rejected.push({ ...snapshot, reason: "Promotion is inactive" });
             continue;
         }
-
         eligible.push(snapshot);
-        const stage =
-            promotion.kind === "SPECIFIC_PRODUCT_DISCOUNT"
-                ? "specific_product_discount"
-                : "collection_discount";
         const previewItems = cloneBasket(items);
-        const result = applyItemLevelPromotion(previewItems, promotion, stage);
-
+        const result = applyItemLevelPromotion(
+            previewItems,
+            promotion,
+            "specific_product_discount",
+        );
         if (!result.applied) {
             rejected.push({ ...snapshot, reason: result.reason });
             continue;
         }
-
-        topLevelCandidates.push({
+        specificProductCandidates.push({
             promotion,
             snapshot,
-            stage,
+            stage: "specific_product_discount",
             previewAmount: result.amount,
             affectedItems: result.affectedItems,
         });
     }
 
-    const selectedTopLevelPromotion = topLevelCandidates
-        .sort(comparePromotionCandidates)
+    const selectedSpecificPromotion = specificProductCandidates
+        .sort(compareTopLevelCandidates)
         .at(0);
 
-    if (selectedTopLevelPromotion) {
+    if (selectedSpecificPromotion) {
         const selectedResult = applyItemLevelPromotion(
             items,
-            selectedTopLevelPromotion.promotion,
-            selectedTopLevelPromotion.stage,
+            selectedSpecificPromotion.promotion,
+            "specific_product_discount",
         );
-
         if (selectedResult.applied) {
             applied.push(
                 buildAppliedPromotion(
-                    selectedTopLevelPromotion.promotion,
+                    selectedSpecificPromotion.promotion,
                     selectedResult.amount,
                     {
-                        stage: selectedTopLevelPromotion.stage,
+                        stage: selectedSpecificPromotion.stage,
                         affectedItems: selectedResult.affectedItems,
                     },
                 ),
             );
         }
-
-        for (const candidate of topLevelCandidates) {
+        for (const candidate of specificProductCandidates) {
             if (
-                candidate.promotion.id ===
-                selectedTopLevelPromotion.promotion.id
+                candidate.promotion.id !==
+                selectedSpecificPromotion.promotion.id
             ) {
-                continue;
+                rejected.push({
+                    ...candidate.snapshot,
+                    reason: "Conflicts with the selected specific product promotion",
+                });
             }
+        }
+    }
 
-            rejected.push({
-                ...candidate.snapshot,
-                reason: "Conflicts with the selected top-level promotion",
-            });
+    // Phase 2 – COLLECTION_DISCOUNT: applied on top of Phase 1 adjusted basket.
+    const collectionCandidates = [];
+    for (const promotion of itemPromotions.filter(
+        (p) => p.kind === "COLLECTION_DISCOUNT",
+    )) {
+        const snapshot = formatPromotionSnapshot(promotion);
+        if (!isPromotionActive(promotion, now)) {
+            rejected.push({ ...snapshot, reason: "Promotion is inactive" });
+            continue;
+        }
+        eligible.push(snapshot);
+        const previewItems = cloneBasket(items); // already has Phase 1 applied
+        const result = applyItemLevelPromotion(
+            previewItems,
+            promotion,
+            "collection_discount",
+        );
+        if (!result.applied) {
+            rejected.push({ ...snapshot, reason: result.reason });
+            continue;
+        }
+        collectionCandidates.push({
+            promotion,
+            snapshot,
+            stage: "collection_discount",
+            previewAmount: result.amount,
+            affectedItems: result.affectedItems,
+        });
+    }
+
+    const selectedCollectionPromotion = collectionCandidates
+        .sort(compareTopLevelCandidates)
+        .at(0);
+
+    if (selectedCollectionPromotion) {
+        const selectedResult = applyItemLevelPromotion(
+            items,
+            selectedCollectionPromotion.promotion,
+            "collection_discount",
+        );
+        if (selectedResult.applied) {
+            applied.push(
+                buildAppliedPromotion(
+                    selectedCollectionPromotion.promotion,
+                    selectedResult.amount,
+                    {
+                        stage: selectedCollectionPromotion.stage,
+                        affectedItems: selectedResult.affectedItems,
+                    },
+                ),
+            );
+        }
+        for (const candidate of collectionCandidates) {
+            if (
+                candidate.promotion.id !==
+                selectedCollectionPromotion.promotion.id
+            ) {
+                rejected.push({
+                    ...candidate.snapshot,
+                    reason: "Conflicts with the selected collection promotion",
+                });
+            }
         }
     }
 
@@ -702,7 +782,21 @@ export async function previewPromotions({
 
     const basket = buildBasketFromVariants(items, dbVariants);
     const promotions = await loadPromotions({ codes, ids, autoApply });
-    const pricing = evaluatePromotions({ basket, promotions });
+
+    // Always inject active specific-product discounts for products in the basket,
+    // regardless of autoApply flag or whether the user selected them.
+    const productIds = [...new Set(dbVariants.map((v) => v.product.id))];
+    const specificProductPromos = await getActiveProductPromotions(productIds);
+    const existingIds = new Set(promotions.map((p) => p.id));
+    const mergedPromotions = [
+        ...promotions,
+        ...specificProductPromos.filter((p) => !existingIds.has(p.id)),
+    ];
+
+    const pricing = evaluatePromotions({
+        basket,
+        promotions: mergedPromotions,
+    });
 
     return {
         valid: true,
