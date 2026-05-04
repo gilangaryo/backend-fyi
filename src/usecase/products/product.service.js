@@ -7,6 +7,7 @@ import {
     updateProductData,
     deleteProductData,
     findSuggestedProducts,
+    findSaleProducts,
 } from "./product.repository.js";
 import { attachProductPricing } from "../../lib/promo-engine/promo-engine.js";
 
@@ -53,6 +54,10 @@ export async function getSuggestedProducts(statusFilter, limit) {
     return attachProductPricing(products);
 }
 
+export async function getSaleProducts({ skip, limit }) {
+    return findSaleProducts({ skip, limit });
+}
+
 // get by id
 export async function getProduct(id) {
     const product = await findProductById(id);
@@ -86,6 +91,8 @@ export async function createProduct(data) {
         variants,
         status,
         kainId,
+        modelHeight,
+        modelWeight,
     } = data;
 
     if (!title || title.trim().length < 3)
@@ -126,6 +133,8 @@ export async function createProduct(data) {
         images: images ? { create: images } : undefined,
         variants: variants ? { create: variants } : undefined,
         kainId,
+        modelHeight: modelHeight ?? null,
+        modelWeight: modelWeight ?? null,
     });
 }
 
@@ -145,6 +154,8 @@ export async function updateProduct(id, data) {
         variants,
         status,
         kainId,
+        modelHeight,
+        modelWeight,
     } = data;
 
     const existing = await findProductById(id);
@@ -193,6 +204,9 @@ export async function updateProduct(id, data) {
     if (status !== undefined) updateData.status = status;
 
     if (kainId !== undefined) updateData.kainId = kainId;
+    
+    if (modelHeight !== undefined) updateData.modelHeight = modelHeight;
+    if (modelWeight !== undefined) updateData.modelWeight = modelWeight;
 
     const totalStock =
         Array.isArray(variants) && variants.length > 0

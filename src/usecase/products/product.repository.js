@@ -269,3 +269,93 @@ export async function updateProductData(id, data, relationalData = {}) {
 export async function deleteProductData(id) {
     return prisma.product.delete({ where: { id } });
 }
+
+export async function findSaleProducts({ skip = 0, limit = 12 } = {}) {
+    const now = new Date();
+
+    const activeDiscounts = await prisma.discount.findMany({
+        where: {
+            status: true,
+            deletedAt: null,
+            kind: { in: ["SPECIFIC_PRODUCT_DISCOUNT", "COLLECTION_DISCOUNT"] },
+            OR: [{ startsAt: null }, { startsAt: { lte: now } }],
+            expiresAt: { gte: now },
+        },
+        include: {
+            productTargets: { select: { productId: true } },
+            collectionTargets: { select: { collectionId: true } },
+        },
+    });
+
+    const productIdSet = new Set();
+    const discountByProductId = new Map();
+
+    for (const discount of activeDiscounts) {
+        for (const t of discount.productTargets) {
+            productIdSet.add(t.productId);
+            if (!discountByProductId.has(t.productId)) {
+                discountByProductId.set(t.productId, discount);
+            }
+        }
+
+        if (discount.collectionTargets.length > 0) {
+            const collectionIds = discount.collectionTargets.map(
+                (t) => t.collectionId,
+            );
+            const productsInCollections = await prisma.product.findMany({
+                where: { collectionId: { in: collectionIds }, status: true },
+                select: { id: true },
+            });
+            for (const p of productsInCollections) {
+                productIdSet.add(p.id);
+                if (!discountByProductId.has(p.id)) {
+                    discountByProductId.set(p.id, discount);
+                }
+            }
+        }
+    }
+
+    if (productIdSet.size === 0) return { products: [], total: 0 };
+
+    const total = await prisma.product.count({
+        where: { id: { in: [...productIdSet] }, status: true },
+    });
+
+    const products = await prisma.product.findMany({
+        where: { id: { in: [...productIdSet] }, status: true },
+        include: {
+            variants: true,
+            images: true,
+            category: true,
+            collection: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+    });
+
+    const mappedProducts = products.map((product) => {
+        const discount = discountByProductId.get(product.id);
+        const basePrice = Number(product.price);
+        let discountedPrice = basePrice;
+
+        if (discount.type === "PERCENT") {
+            discountedPrice = basePrice * (1 - Number(discount.value) / 100);
+        } else {
+            discountedPrice = basePrice - Number(discount.value);
+        }
+        discountedPrice = Math.max(0, Math.round(discountedPrice));
+
+        return {
+            ...product,
+            price: discountedPrice,
+            priceBeforeDiscount: basePrice,
+            discountPercent:
+                discount.type === "PERCENT"
+                    ? Number(discount.value)
+                    : Math.round((1 - discountedPrice / basePrice) * 100),
+        };
+    });
+
+    return { products: mappedProducts, total };
+}

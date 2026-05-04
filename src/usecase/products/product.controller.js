@@ -6,6 +6,7 @@ import {
     updateProduct,
     removeProduct,
     getSuggestedProducts,
+    getSaleProducts,
 } from "./product.service.js";
 
 // get all
@@ -121,6 +122,40 @@ export async function handleGetSuggestedProducts(req, res) {
             success: false,
             status: 400,
             message: err.message || "Failed to fetch suggested products",
+            data: null,
+        });
+    }
+}
+
+// sale
+export async function handleGetSaleProducts(req, res) {
+    try {
+        const { page = 1, limit = 12 } = req.query;
+        const pageNum = Math.max(Number(page), 1);
+        const limitNum = Math.max(Number(limit), 1);
+        const skip = (pageNum - 1) * limitNum;
+
+        const { products, total } = await getSaleProducts({ skip, limit: limitNum });
+        const totalPages = Math.ceil(total / limitNum);
+
+        res.status(200).json({
+            success: true,
+            status: 200,
+            message: "Sale products retrieved successfully",
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                totalPages,
+            },
+            data: products,
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(400).json({
+            success: false,
+            status: 400,
+            message: err.message || "Failed to fetch sale products",
             data: null,
         });
     }

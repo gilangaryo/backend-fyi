@@ -8,6 +8,7 @@ import {
     handleDeleteProduct,
     handleToggleStatus,
     handleGetSuggestedProducts,
+    handleGetSaleProducts,
 } from "../usecase/products/product.controller.js";
 
 import { requireAuth } from "../middleware/auth.middleware.js";
@@ -19,6 +20,7 @@ const router = Router();
 router.get("/", handleGetProducts);
 router.get("/slug/:slug", handleGetProductBySlug);
 router.get("/suggested", handleGetSuggestedProducts);
+router.get("/sale", handleGetSaleProducts);
 router.get("/:id", handleGetProductById);
 
 // 🔒 Admin Only
