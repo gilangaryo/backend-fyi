@@ -50,8 +50,8 @@ model Product {
   details     String? @db.Text
   delivery    String? @db.Text
   status      Boolean @default(true)
-  modelHeight String?
-  modelWeight String?
+  modelHeight Float?
+  modelWeight Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
