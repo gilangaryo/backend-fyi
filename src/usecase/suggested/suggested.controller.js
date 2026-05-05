@@ -1,4 +1,5 @@
 import prisma from "../../prisma/client.js";
+import { attachProductPricing } from "../../lib/promo-engine/promo-engine.js";
 
 export const SuggestedController = {
     async getAll(req, res) {
@@ -13,7 +14,18 @@ export const SuggestedController = {
 
                 orderBy: { position: "asc" },
             });
-            res.json({ status: "success", data });
+
+            // Attach discount pricing to each product
+            const products = data.map((s) => s.product).filter(Boolean);
+            const enriched = await attachProductPricing(products);
+            const enrichedMap = new Map(enriched.map((p) => [p.id, p]));
+
+            const result = data.map((s) => ({
+                ...s,
+                product: enrichedMap.get(s.product?.id) || s.product,
+            }));
+
+            res.json({ status: "success", data: result });
         } catch (err) {
             console.error("❌ Get suggested error:", err);
             res.status(500).json({ message: err.message });
