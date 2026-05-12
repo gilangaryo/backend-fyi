@@ -135,7 +135,10 @@ export async function handleGetSaleProducts(req, res) {
         const limitNum = Math.max(Number(limit), 1);
         const skip = (pageNum - 1) * limitNum;
 
-        const { products, total } = await getSaleProducts({ skip, limit: limitNum });
+        const { products, total } = await getSaleProducts({
+            skip,
+            limit: limitNum,
+        });
         const totalPages = Math.ceil(total / limitNum);
 
         res.status(200).json({

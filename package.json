@@ -7,7 +7,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.js",
+    "backfill:measurements": "node prisma/backfill-product-measurements.js",
+    "import:productvariant": "node prisma/import-productvariant-sql-to-measurements.js"
   },
   "keywords": [],
   "author": "",

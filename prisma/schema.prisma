@@ -69,6 +69,7 @@ model Product {
   orderItems        OrderItem[]
   suggestedProducts SuggestedProduct[]
   promotionTargets  DiscountProductTarget[]
+  measurementFields MeasurementField[]
 
   // indexes
   @@index([categoryId])
@@ -99,6 +100,41 @@ model ProductVariant {
 
   product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   OrderItem OrderItem[]
+  measurements ProductVariantMeasurement[]
+
+  @@index([productId])
+}
+
+model MeasurementField {
+  id          String   @id @default(uuid())
+  productId   String
+  name        String
+  displayName String
+  unit        String?
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product      Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  measurements ProductVariantMeasurement[]
+
+  @@unique([productId, name])
+  @@index([productId, position])
+}
+
+model ProductVariantMeasurement {
+  id        String   @id @default(uuid())
+  variantId String
+  fieldId   String
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  variant ProductVariant   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  field   MeasurementField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, fieldId])
+  @@index([fieldId])
 }
 
 model ProductImage {

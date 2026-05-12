@@ -1,5 +1,195 @@
 import prisma from "../../prisma/client.js";
 
+function toMeasurementKey(value) {
+    if (typeof value !== "string") return "";
+
+    return value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+}
+
+function toNullableString(value) {
+    if (typeof value !== "string") return null;
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeMeasurementFields(measurementFields) {
+    const normalized = [];
+    const seen = new Set();
+
+    if (Array.isArray(measurementFields) && measurementFields.length > 0) {
+        measurementFields.forEach((field, index) => {
+            const key = toMeasurementKey(field?.name);
+            if (!key || seen.has(key)) return;
+
+            seen.add(key);
+            normalized.push({
+                name: key,
+                displayName:
+                    typeof field?.displayName === "string" &&
+                    field.displayName.trim().length > 0
+                        ? field.displayName.trim()
+                        : key
+                              .split("_")
+                              .map(
+                                  (part) =>
+                                      part.charAt(0).toUpperCase() +
+                                      part.slice(1),
+                              )
+                              .join(" "),
+                unit: toNullableString(field?.unit),
+                position:
+                    Number.isFinite(Number(field?.position)) &&
+                    Number(field.position) >= 0
+                        ? Number(field.position)
+                        : index,
+            });
+        });
+
+        return normalized;
+    }
+
+    return normalized;
+}
+
+function getVariantMeasurementEntries(variant = {}) {
+    const valueMap = new Map();
+
+    const pushValue = (key, value) => {
+        const normalizedValue = toNullableString(value);
+        if (!normalizedValue) return;
+
+        if (typeof key === "string" && key.trim().length > 0) {
+            valueMap.set(key, normalizedValue);
+        }
+    };
+
+    if (Array.isArray(variant.measurements)) {
+        for (const measurement of variant.measurements) {
+            const key =
+                measurement?.fieldId ||
+                measurement?.fieldName ||
+                measurement?.name ||
+                measurement?.field?.name;
+            pushValue(key, measurement?.value);
+        }
+    } else if (
+        variant.measurements &&
+        typeof variant.measurements === "object"
+    ) {
+        Object.entries(variant.measurements).forEach(([key, value]) => {
+            pushValue(key, value);
+        });
+    }
+
+    return [...valueMap.entries()].map(([key, value]) => ({ key, value }));
+}
+
+async function syncMeasurementFields(
+    tx,
+    productId,
+    measurementFields,
+    shouldPrune,
+) {
+    const normalizedFields = normalizeMeasurementFields(measurementFields);
+
+    if (normalizedFields.length === 0) {
+        return tx.measurementField.findMany({
+            where: { productId },
+            orderBy: { position: "asc" },
+        });
+    }
+
+    if (shouldPrune) {
+        await tx.measurementField.deleteMany({
+            where: {
+                productId,
+                name: {
+                    notIn: normalizedFields.map((field) => field.name),
+                },
+            },
+        });
+    }
+
+    for (const field of normalizedFields) {
+        await tx.measurementField.upsert({
+            where: {
+                productId_name: {
+                    productId,
+                    name: field.name,
+                },
+            },
+            update: {
+                displayName: field.displayName,
+                unit: field.unit,
+                position: field.position,
+            },
+            create: {
+                productId,
+                name: field.name,
+                displayName: field.displayName,
+                unit: field.unit,
+                position: field.position,
+            },
+        });
+    }
+
+    return tx.measurementField.findMany({
+        where: { productId },
+        orderBy: { position: "asc" },
+    });
+}
+
+async function syncVariantMeasurements(tx, variantId, variant, fieldList) {
+    if (!Array.isArray(fieldList) || fieldList.length === 0) {
+        return;
+    }
+
+    const fieldByName = new Map(
+        fieldList.map((field) => [field.name, field.id]),
+    );
+    const fieldById = new Map(fieldList.map((field) => [field.id, field.id]));
+    const allFieldIds = fieldList.map((field) => field.id);
+
+    const entries = getVariantMeasurementEntries(variant);
+    const mappedEntries = [];
+
+    for (const entry of entries) {
+        let fieldId = fieldById.get(entry.key);
+        if (!fieldId) {
+            fieldId = fieldByName.get(toMeasurementKey(entry.key));
+        }
+
+        if (!fieldId) continue;
+
+        mappedEntries.push({
+            fieldId,
+            value: entry.value,
+        });
+    }
+
+    await tx.productVariantMeasurement.deleteMany({
+        where: {
+            variantId,
+            fieldId: { in: allFieldIds },
+        },
+    });
+
+    if (mappedEntries.length > 0) {
+        await tx.productVariantMeasurement.createMany({
+            data: mappedEntries.map((entry) => ({
+                variantId,
+                fieldId: entry.fieldId,
+                value: entry.value,
+            })),
+            skipDuplicates: true,
+        });
+    }
+}
+
 // ambil semua produk
 export async function findAllProducts(
     statusFilter,
@@ -136,7 +326,18 @@ export async function findProductById(id) {
     return prisma.product.findUnique({
         where: { id },
         include: {
-            variants: true,
+            measurementFields: {
+                orderBy: { position: "asc" },
+            },
+            variants: {
+                include: {
+                    measurements: {
+                        include: {
+                            field: true,
+                        },
+                    },
+                },
+            },
             images: true,
             category: true,
             collection: true,
@@ -150,32 +351,101 @@ export async function findProductBySlug(slug) {
     return prisma.product.findUnique({
         where: { slug },
         include: {
-            variants: true,
+            measurementFields: {
+                orderBy: { position: "asc" },
+            },
+            variants: {
+                include: {
+                    measurements: {
+                        include: {
+                            field: true,
+                        },
+                    },
+                },
+            },
             images: true,
             category: true,
             collection: true,
+            kain: true,
         },
     });
 }
 
 // buat produk baru
 export async function insertProduct(data) {
-    return prisma.product.create({
-        data,
-        include: { images: true, variants: true },
+    const { variants, measurementFields, ...restData } = data;
+
+    return prisma.$transaction(async (tx) => {
+        const created = await tx.product.create({
+            data: {
+                ...restData,
+                variants,
+            },
+            include: {
+                variants: true,
+            },
+        });
+
+        const fields = await syncMeasurementFields(
+            tx,
+            created.id,
+            measurementFields,
+            false,
+        );
+
+        const sourceVariants = Array.isArray(variants?.create)
+            ? variants.create
+            : [];
+
+        for (let i = 0; i < created.variants.length; i++) {
+            await syncVariantMeasurements(
+                tx,
+                created.variants[i].id,
+                sourceVariants[i] || {},
+                fields,
+            );
+        }
+
+        return tx.product.findUnique({
+            where: { id: created.id },
+            include: {
+                measurementFields: {
+                    orderBy: { position: "asc" },
+                },
+                images: true,
+                variants: {
+                    include: {
+                        measurements: {
+                            include: {
+                                field: true,
+                            },
+                        },
+                    },
+                },
+                category: true,
+                collection: true,
+                kain: true,
+            },
+        });
     });
 }
 
 // update produk
 export async function updateProductData(id, data, relationalData = {}) {
-    const { images, variants } = relationalData;
+    const { images, variants, measurementFields } = relationalData;
 
     return prisma.$transaction(async (tx) => {
-        const updated = await tx.product.update({
+        await tx.product.update({
             where: { id },
             data,
-            include: { images: true, variants: true },
         });
+
+        const fields = await syncMeasurementFields(
+            tx,
+            id,
+            measurementFields,
+            measurementFields !== undefined,
+        );
 
         if (images !== undefined) {
             await tx.productImage.deleteMany({ where: { productId: id } });
@@ -226,29 +496,28 @@ export async function updateProductData(id, data, relationalData = {}) {
                             color: v.color,
                             stock: v.stock,
                             sku: v.sku,
-                            bust: v.bust,
-                            waist: v.waist,
-                            length: v.length,
-                            sleeve: v.sleeve,
-                            height: v.height,
                         },
                     });
+
+                    await syncVariantMeasurements(tx, v.id, v, fields);
                 } else {
                     // create new
-                    await tx.productVariant.create({
+                    const createdVariant = await tx.productVariant.create({
                         data: {
                             productId: id,
                             size: v.size || null,
                             color: v.color || null,
                             stock: v.stock ?? 0,
                             sku: v.sku || null,
-                            bust: v.bust || null,
-                            waist: v.waist || null,
-                            length: v.length || null,
-                            sleeve: v.sleeve || null,
-                            height: v.height || null,
                         },
                     });
+
+                    await syncVariantMeasurements(
+                        tx,
+                        createdVariant.id,
+                        v,
+                        fields,
+                    );
                 }
             }
         }
@@ -256,10 +525,22 @@ export async function updateProductData(id, data, relationalData = {}) {
         return tx.product.findUnique({
             where: { id },
             include: {
+                measurementFields: {
+                    orderBy: { position: "asc" },
+                },
                 images: true,
-                variants: true,
+                variants: {
+                    include: {
+                        measurements: {
+                            include: {
+                                field: true,
+                            },
+                        },
+                    },
+                },
                 category: true,
                 collection: true,
+                kain: true,
             },
         });
     });
