@@ -104,9 +104,17 @@ export const createOrder = async (payload) => {
         (promotion) => promotion.id === appliedPromotions[0]?.id,
     );
 
-    const defaultCourierSetting = await prisma.setting.findUnique({
-        where: { key: "default_courier" },
-    });
+    const [
+        defaultCourierSetting,
+        originAddressSetting,
+        originNoteSetting,
+        originPostalCodeSetting,
+    ] = await Promise.all([
+        prisma.setting.findUnique({ where: { key: "default_courier" } }),
+        prisma.setting.findUnique({ where: { key: "origin_address" } }),
+        prisma.setting.findUnique({ where: { key: "origin_note" } }),
+        prisma.setting.findUnique({ where: { key: "origin_postal_code" } }),
+    ]);
     const defaultCourier = defaultCourierSetting.value;
     const courierType = getDefaultCourierType(defaultCourier);
 
@@ -125,9 +133,10 @@ export const createOrder = async (payload) => {
         origin_contact_name: "FYI Couture Store || Fiona Yao",
         origin_contact_phone: "082391231082",
         origin_address:
+            originAddressSetting?.value ||
             "Jl. Tanah Barak No.15, Canggu, Kec. Kuta Utara, Kabupaten Badung, Bali 80351",
-        origin_note: "FYI Couture Store",
-        origin_postal_code: 80351,
+        origin_note: originNoteSetting?.value || "FYI Couture Store",
+        origin_postal_code: Number(originPostalCodeSetting?.value) || 80351,
         destination_contact_name: name,
         destination_contact_phone: phone,
         destination_contact_email: email,
@@ -154,6 +163,10 @@ export const createOrder = async (payload) => {
             weight: 200,
         })),
     };
+    console.log(
+        "🚚 Creating Biteship draft order with payload:",
+        biteshipPayload,
+    );
 
     const shipRes = await fetch("https://api.biteship.com/v1/draft_orders", {
         method: "POST",
