@@ -5,7 +5,7 @@ import {
     createCategory,
     updateCategory,
     removeCategory,
-} from './category.service.js';
+} from "./category.service.js";
 
 // get all
 export async function handleGetCategories(req, res) {
@@ -14,7 +14,7 @@ export async function handleGetCategories(req, res) {
         res.status(200).json({
             success: true,
             status: 200,
-            message: 'Category list retrieved successfully',
+            message: "Category list retrieved successfully",
             data: categories,
         });
     } catch (err) {
@@ -34,7 +34,7 @@ export async function handleGetCategoryById(req, res) {
         res.status(200).json({
             success: true,
             status: 200,
-            message: 'Category retrieved successfully',
+            message: "Category retrieved successfully",
             data: category,
         });
     } catch (err) {
@@ -54,7 +54,7 @@ export async function handleGetCategoryBySlug(req, res) {
         res.status(200).json({
             success: true,
             status: 200,
-            message: 'Category retrieved successfully',
+            message: "Category retrieved successfully",
             data: category,
         });
     } catch (err) {
@@ -74,7 +74,7 @@ export async function handleCreateCategory(req, res) {
         res.status(201).json({
             success: true,
             status: 201,
-            message: 'Category created successfully',
+            message: "Category created successfully",
             data: created,
         });
     } catch (err) {
@@ -94,7 +94,7 @@ export async function handleUpdateCategory(req, res) {
         res.status(200).json({
             success: true,
             status: 200,
-            message: 'Category updated successfully',
+            message: "Category updated successfully",
             data: updated,
         });
     } catch (err) {
@@ -114,7 +114,7 @@ export async function handleDeleteCategory(req, res) {
         res.status(200).json({
             success: true,
             status: 200,
-            message: 'Category deleted successfully',
+            message: "Category deleted successfully",
             data: null,
         });
     } catch (err) {

@@ -1,19 +1,35 @@
-import prisma from '../../prisma/client.js';
+import prisma from "../../prisma/client.js";
 
 // ambil semua kategori
 export async function findAllCategories() {
     return prisma.category.findMany({
-        orderBy: { createdAt: 'desc' },
+        where: { status: true },
+        orderBy: { createdAt: "desc" },
     });
 }
 
 // ambil kategori by id
 export async function findCategoryById(id) {
-    return prisma.category.findUnique({ where: { id } });
+    return prisma.category.findFirst({
+        where: {
+            id,
+            status: true,
+        },
+    });
 }
 
 // ambil kategori by slug
 export async function findCategoryBySlug(slug) {
+    return prisma.category.findFirst({
+        where: {
+            slug,
+            status: true,
+        },
+    });
+}
+
+// ambil kategori by slug tanpa filter status
+export async function findCategoryBySlugAnyStatus(slug) {
     return prisma.category.findUnique({ where: { slug } });
 }
 
@@ -32,5 +48,10 @@ export async function updateCategoryData(id, data) {
 
 // hapus kategori
 export async function deleteCategoryData(id) {
-    return prisma.category.delete({ where: { id } });
+    return prisma.category.update({
+        where: { id },
+        data: {
+            status: false,
+        },
+    });
 }
