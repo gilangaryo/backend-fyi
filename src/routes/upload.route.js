@@ -59,7 +59,7 @@ router.post(
 
             await sharp(tempPath)
                 .resize(1200, null, { withoutEnlargement: true })
-                .jpeg({ quality: 65, progressive: true })
+                .jpeg({ quality: 85, progressive: true })
                 .toFile(req.file.path);
 
             fs.unlinkSync(tempPath);
