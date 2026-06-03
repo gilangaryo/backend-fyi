@@ -58,6 +58,7 @@ router.post(
             fs.renameSync(req.file.path, tempPath);
 
             await sharp(tempPath)
+                .rotate()
                 .resize(1200, null, { withoutEnlargement: true })
                 .jpeg({ quality: 85, progressive: true })
                 .toFile(req.file.path);
