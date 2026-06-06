@@ -112,12 +112,19 @@ export async function midtransWebhook(req, res) {
             });
         }
 
-        // ❌ PAYMENT FAILED
-        if (
-            transaction_status === "expire" ||
-            transaction_status === "cancel" ||
-            transaction_status === "deny"
-        ) {
+        if (transaction_status === "expire") {
+            await prisma.payment.update({
+                where: { id: payment.id },
+                data: { status: "EXPIRED" },
+            });
+
+            await prisma.order.update({
+                where: { id: payment.orderId },
+                data: { status: "EXPIRED" },
+            });
+        }
+
+        if (transaction_status === "cancel" || transaction_status === "deny") {
             await prisma.payment.update({
                 where: { id: payment.id },
                 data: { status: "FAILED" },

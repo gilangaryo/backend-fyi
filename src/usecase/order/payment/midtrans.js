@@ -63,6 +63,50 @@ function calculateGrossAmount(itemDetails) {
     );
 }
 
+const MIDTRANS_MIN_EXPIRY_MINUTES = 5;
+
+// const PAYMENT_EXPIRY_DURATION = 5;
+// const PAYMENT_EXPIRY_UNIT = "minutes";
+
+const PAYMENT_EXPIRY_DURATION = 24;
+const PAYMENT_EXPIRY_UNIT = "hours";
+
+function resolveExpiryForMidtrans(duration, unit) {
+    const normalized = unit.replace(/s$/, "");
+    if (normalized === "minute" && duration < MIDTRANS_MIN_EXPIRY_MINUTES) {
+        return {
+            duration: MIDTRANS_MIN_EXPIRY_MINUTES,
+            unit: "minutes",
+        };
+    }
+    return { duration, unit };
+}
+
+function expiryDurationMs(duration, unit) {
+    const normalized = unit.replace(/s$/, "");
+    const multipliers = {
+        second: 1000,
+        minute: 60 * 1000,
+        hour: 60 * 60 * 1000,
+        day: 24 * 60 * 60 * 1000,
+    };
+    return duration * (multipliers[normalized] ?? multipliers.hour);
+}
+
+function formatWib(date) {
+    const wib = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${wib.getUTCFullYear()}-${pad(wib.getUTCMonth() + 1)}-${pad(wib.getUTCDate())} ${pad(wib.getUTCHours())}:${pad(wib.getUTCMinutes())}:${pad(wib.getUTCSeconds())} +0700`;
+}
+
+function calculateExpiredAt(from = new Date()) {
+    const { duration, unit } = resolveExpiryForMidtrans(
+        PAYMENT_EXPIRY_DURATION,
+        PAYMENT_EXPIRY_UNIT,
+    );
+    return new Date(from.getTime() + expiryDurationMs(duration, unit));
+}
+
 export async function createMidtransPayment({
     order,
     basket,
@@ -84,6 +128,13 @@ export async function createMidtransPayment({
         throw new Error("Invalid payable amount for Midtrans transaction");
     }
 
+    const now = new Date();
+    const expiry = resolveExpiryForMidtrans(
+        PAYMENT_EXPIRY_DURATION,
+        PAYMENT_EXPIRY_UNIT,
+    );
+    const expiredAt = calculateExpiredAt(now);
+
     const transaction = {
         transaction_details: {
             order_id: `FYI-${Date.now()}`,
@@ -96,7 +147,17 @@ export async function createMidtransPayment({
             phone: user.phone,
         },
         callbacks: {
-            finish: `${process.env.FRONTEND_URL}/success?order_id=${order.id}`,
+            finish: `${process.env.FRONTEND_URL}/payment/result`,
+            error: `${process.env.FRONTEND_URL}/payment/failed`,
+        },
+        page_expiry: {
+            duration: expiry.duration,
+            unit: expiry.unit,
+        },
+        expiry: {
+            start_time: formatWib(now),
+            duration: expiry.duration,
+            unit: expiry.unit,
         },
     };
 
@@ -107,6 +168,6 @@ export async function createMidtransPayment({
         referenceId: transaction.transaction_details.order_id,
         paymentId: transactionRes.token,
         paymentUrl: transactionRes.redirect_url,
-        expiredAt: null,
+        expiredAt,
     };
 }

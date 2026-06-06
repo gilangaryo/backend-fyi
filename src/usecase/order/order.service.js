@@ -329,9 +329,18 @@ export const getAllOrders = async ({
 
     if (search) {
         where.OR = [
-            { id: { contains: search, mode: "insensitive" } },
-            { user: { name: { contains: search, mode: "insensitive" } } },
-            { user: { email: { contains: search, mode: "insensitive" } } },
+            { id: { contains: search } },
+            { user: { name: { contains: search } } },
+            { user: { email: { contains: search } } },
+            {
+                items: {
+                    some: {
+                        product: {
+                            title: { contains: search },
+                        },
+                    },
+                },
+            },
         ];
     }
 

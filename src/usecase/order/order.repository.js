@@ -55,7 +55,7 @@ export const findAllOrdersPaginated = async (where, skip, limit) => {
         include: {
             user: true,
             items: { include: { product: true } },
-            payments: { select: { status: true } },
+            payments: { select: { status: true, expiredAt: true } },
             shippingAddress: true,
             discount: true,
             tracking: true,
