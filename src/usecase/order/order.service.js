@@ -131,10 +131,10 @@ export const createOrder = async (payload) => {
     // Buat draft order ke Biteship (pengiriman)
     const biteshipPayload = {
         origin_contact_name: "FYI Couture Store || Fiona Yao",
-        origin_contact_phone: "082391231082",
+        origin_contact_phone: "081809095005",
         origin_address:
             originAddressSetting?.value ||
-            "Jl. Tanah Barak No.15, Canggu, Kec. Kuta Utara, Kabupaten Badung, Bali 80351",
+            "Jl. Babadan, Pererenan, Kec. Mengwi, Kabupaten Badung, Bali 80351",
         origin_note: originNoteSetting?.value || "FYI Couture Store",
         origin_postal_code: Number(originPostalCodeSetting?.value) || 80351,
         destination_contact_name: name,
