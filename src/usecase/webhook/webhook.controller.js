@@ -7,7 +7,6 @@ export async function handlePaymentCompletedWebhook(req, res) {
     try {
         const rawBody = req.body;
         const signature = req.headers["x-callback-token"];
-        console.log(rawBody, signature);
 
         if (rawBody.event === "payment_session.completed") {
             const result = await processPaymentCompleted(rawBody, signature);
