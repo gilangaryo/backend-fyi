@@ -71,8 +71,6 @@ export async function handleGetBlogBySlug(req, res) {
 // CREATE
 export async function handleCreateBlog(req, res) {
     try {
-        console.log(req.body);
-
         const created = await createBlog(req.body);
         res.status(201).json({
             success: true,
